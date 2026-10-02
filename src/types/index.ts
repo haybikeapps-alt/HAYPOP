@@ -141,6 +141,19 @@ export interface ExpenseRecord {
   timestamp: string;
 }
 
+export interface FinancialAccount {
+  id: string;
+  code: string;
+  name: string;
+  accountType: 'cash' | 'bank' | 'qris' | 'ewallet';
+  paymentMethodCode?: string | null;
+  description?: string | null;
+  isActive: boolean;
+  balance: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface StoreSettings {
   storeName: string;
   tagline: string;
