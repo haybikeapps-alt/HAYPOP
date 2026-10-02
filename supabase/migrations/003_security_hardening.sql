@@ -1,3 +1,32 @@
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+      and role = 'admin'
+      and is_active = true
+  );
+$$;
+
+create or replace function public.is_active_user()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+      and is_active = true
+  );
+$$;
+
 -- HAYPOP security hardening
 -- Safe user provisioning defaults, profile invariants, audit events,
 -- and server-side transaction invariants.
@@ -6,7 +35,7 @@ create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_base_username text;
@@ -37,7 +66,7 @@ create or replace function public.protect_profile_changes()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_other_admins integer;
@@ -86,7 +115,7 @@ create or replace function public.audit_profile_changes()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   if old.role is distinct from new.role then
@@ -114,7 +143,7 @@ create or replace function public.create_transaction_with_stock(p_transaction js
 returns boolean
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_user uuid := auth.uid();
