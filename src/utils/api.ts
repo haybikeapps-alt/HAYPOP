@@ -5,6 +5,7 @@ import {
   ExpenseRecord,
   StoreSettings,
   PaymentAccountSettings,
+  FinancialAccount,
 } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -358,4 +359,82 @@ export async function apiGetPaymentSettings(): Promise<PaymentAccountSettings | 
 
 export async function apiSavePaymentSettings(settings: PaymentAccountSettings): Promise<boolean> {
   return saveSetting('payment_settings', settings);
+}
+
+function mapFinancialAccount(row: any, balance: number): FinancialAccount {
+  return {
+    id: String(row.id),
+    code: String(row.code ?? ''),
+    name: String(row.name ?? ''),
+    accountType: row.account_type,
+    paymentMethodCode: row.payment_method_code ?? null,
+    description: row.description ?? null,
+    isActive: Boolean(row.is_active),
+    balance,
+    createdAt: String(row.created_at ?? ''),
+    updatedAt: String(row.updated_at ?? ''),
+  };
+}
+
+export async function apiGetFinancialAccounts(): Promise<FinancialAccount[] | null> {
+  const { data, error } = await supabase
+    .from('financial_accounts')
+    .select('id, code, name, account_type, payment_method_code, description, is_active, created_at, updated_at')
+    .order('is_active', { ascending: false })
+    .order('name');
+  if (error || !data) return null;
+
+  const accounts = await Promise.all(data.map(async (row) => {
+    const { data: balance, error: balanceError } = await supabase.rpc('financial_account_balance', {
+      p_account_id: row.id,
+    });
+    return mapFinancialAccount(row, balanceError ? 0 : Number(balance ?? 0));
+  }));
+  return accounts;
+}
+
+export async function apiCreateFinancialAccount(input: {
+  id?: string;
+  code: string;
+  name: string;
+  accountType: FinancialAccount['accountType'];
+  paymentMethodCode?: string | null;
+  description?: string | null;
+}): Promise<boolean> {
+  const payload = {
+    ...(input.id ? { id: input.id } : {}),
+    code: input.code,
+    name: input.name,
+    account_type: input.accountType,
+    payment_method_code: input.paymentMethodCode ?? null,
+    description: input.description ?? null,
+    is_active: true,
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await supabase.from('financial_accounts').upsert(payload);
+  return !error;
+}
+
+export async function apiToggleFinancialAccount(id: string, isActive: boolean): Promise<boolean> {
+  const { error } = await supabase
+    .from('financial_accounts')
+    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  return !error;
+}
+
+export async function apiTransferFinancialFunds(
+  fromAccountId: string,
+  toAccountId: string,
+  amount: number,
+  description?: string | null,
+): Promise<{ success: boolean; error?: string }> {
+  const { data, error } = await supabase.rpc('create_financial_transfer', {
+    p_from_account_id: fromAccountId,
+    p_to_account_id: toAccountId,
+    p_amount: amount,
+    p_description: description ?? null,
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: data === true, error: data === true ? undefined : 'Transfer ditolak oleh sistem.' };
 }
