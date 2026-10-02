@@ -291,3 +291,27 @@ drop policy if exists "transactions_admin_delete" on public.transactions;
 
 -- Audit records must only be written by trusted database workflows.
 drop policy if exists "audit_logs_insert_authenticated" on public.audit_logs;
+
+-- Explicit Data API grants: RLS is the row filter, grants are the operation gate.
+revoke all on table public.profiles, public.categories, public.suppliers, public.customers,
+  public.products, public.transactions, public.expenses, public.settings, public.audit_logs
+  from anon;
+
+revoke all on table public.profiles, public.categories, public.suppliers, public.customers,
+  public.products, public.transactions, public.expenses, public.settings, public.audit_logs
+  from authenticated;
+
+grant select, update on table public.profiles to authenticated;
+grant select, insert, update, delete on table public.categories to authenticated;
+grant select, insert, update, delete on table public.suppliers to authenticated;
+grant select, insert, update, delete on table public.customers to authenticated;
+grant select, insert, update, delete on table public.products to authenticated;
+grant select on table public.transactions to authenticated;
+grant select, insert, update, delete on table public.expenses to authenticated;
+grant select, insert, update, delete on table public.settings to authenticated;
+grant select on table public.audit_logs to authenticated;
+
+revoke execute on function public.is_admin() from public;
+revoke execute on function public.is_active_user() from public;
+grant execute on function public.is_admin() to authenticated;
+grant execute on function public.is_active_user() to authenticated;
