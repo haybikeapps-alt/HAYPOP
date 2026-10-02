@@ -5,7 +5,6 @@ import {
   setCurrentUser,
   getStoreSettings,
   getStoredProducts,
-  syncAllDataWithDatabase,
 } from './utils/storage';
 import { apiGetCurrentUser } from './utils/api';
 import { Navbar, ActiveNavTab } from './components/Navbar';
@@ -27,7 +26,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveNavTab>('pos');
   const [isRoleSwitchOpen, setIsRoleSwitchOpen] = useState(false);
 
-  // The browser copy is only a display cache. The server session is authoritative.
+  // Supabase Auth session is authoritative; local state is display-only.
   useEffect(() => {
     apiGetCurrentUser().then((user) => {
       if (user) {
@@ -45,17 +44,6 @@ export default function App() {
       setActiveTab('pos');
     }
   }, [currentUser, activeTab]);
-
-  // Sync with SQLite only after the server has authenticated the user.
-  useEffect(() => {
-    if (!currentUser) return;
-    syncAllDataWithDatabase().then((success) => {
-      if (success) {
-        setProducts(getStoredProducts());
-        setStoreSettings(getStoreSettings());
-      }
-    });
-  }, [currentUser]);
 
   const handleSelectUser = (newUser: User) => {
     setCurrentUser(newUser);
