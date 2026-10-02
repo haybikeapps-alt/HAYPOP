@@ -12,6 +12,7 @@ import { FinancialAccount, SupplierPayableRecord } from '../types';
 import {
   apiCreateSupplierPayable,
   apiGetFinancialAccounts,
+  apiGetSupplierOptions,
   apiGetSupplierPayables,
   apiRecordSupplierPayment,
 } from '../utils/api';
