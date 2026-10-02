@@ -16,6 +16,7 @@ import {
   CreditCard,
   Wallet,
   ArrowDownRight,
+  Truck,
 } from 'lucide-react';
 import { User, StoreSettings } from '../types';
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -29,6 +30,7 @@ export type ActiveNavTab =
   | 'finance'
   | 'financial_accounts'
   | 'expenses'
+  | 'supplier_payables'
   | 'inventory'
   | 'users'
   | 'payment_settings'
@@ -77,6 +79,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'finance', label: 'Laporan & BEP', icon: TrendingUp, adminOnly: true },
     { id: 'financial_accounts', label: 'Rekening & Saldo', icon: Wallet, adminOnly: true },
     { id: 'expenses', label: 'Pengeluaran', icon: ArrowDownRight, adminOnly: true },
+    { id: 'supplier_payables', label: 'Hutang Supplier', icon: Truck, adminOnly: true },
     { id: 'inventory', label: 'Kelola Stok & Menu', icon: Boxes, adminOnly: true },
     { id: 'payment_settings', label: 'Pengaturan Pembayaran', icon: CreditCard, adminOnly: true },
     { id: 'receipt_settings', label: 'Pengaturan Struk', icon: Printer, adminOnly: true },
