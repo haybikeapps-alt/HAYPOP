@@ -537,7 +537,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleProcessTransaction(total)}
-                disabled={isProcessing || isEncrypting}
+                disabled={isProcessing}
                 className="w-full bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3.5 px-4 rounded-2xl text-sm transition shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer"
               >
                 <CheckCircle2 className="w-5 h-5 text-white" />
