@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="60%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+    <linearGradient id="cupGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#ecfdf5"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)"/>
+  <!-- Bubble Tea / Popcorn stylized emblem -->
+  <g transform="translate(60, 40)">
+    <!-- Boba cup -->
+    <path d="M120 180 L272 180 L246 360 C244 374 232 384 218 384 L174 384 C160 384 148 374 146 360 Z" fill="url(#cupGrad)" opacity="0.95"/>
+    <!-- Lid -->
+    <path d="M106 170 C106 160 114 152 124 152 L268 152 C278 152 286 160 286 170 L286 182 L106 182 Z" fill="#ffffff"/>
+    <!-- Straw -->
+    <path d="M220 90 L242 90 L206 170 L184 170 Z" fill="#a7f3d0"/>
+    <!-- Boba Pearls -->
+    <circle cx="170" cy="330" r="14" fill="#064e3b"/>
+    <circle cx="204" cy="340" r="13" fill="#064e3b"/>
+    <circle cx="220" cy="312" r="14" fill="#064e3b"/>
+    <circle cx="180" cy="296" r="12" fill="#064e3b"/>
+    <circle cx="205" cy="275" r="11" fill="#064e3b"/>
+    <!-- Popcorn cloud / sparkle -->
+    <path d="M280 140 C280 120 295 105 315 105 C320 105 325 106 329 109 C336 96 350 88 365 88 C386 88 402 103 404 123 C412 126 418 134 418 144 C418 156 408 166 396 166 L292 166 C285 166 280 160 280 153 Z" fill="#d1fae5"/>
+    <circle cx="340" cy="120" r="6" fill="#059669"/>
+  </g>
+  <text x="256" y="445" font-family="'Plus Jakarta Sans', sans-serif" font-size="44" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="3">HAYPOP</text>
+</svg>
