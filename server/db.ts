@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'fs';
 import path from 'path';
-import { randomBytes, scryptSync } from 'node:crypto';
+import { randomBytes, randomInt, scryptSync } from 'node:crypto';
 
 // Ensure data folder exists
 const dataDir = path.resolve(process.cwd(), 'data');
@@ -11,6 +11,22 @@ if (!fs.existsSync(dataDir)) {
 
 const dbPath = path.join(dataDir, 'haypop.sqlite');
 export const db = new DatabaseSync(dbPath);
+
+function getInitialPin(name: string) {
+  const configured = process.env[name];
+  if (configured) {
+    if (!/^\d{4,6}$/.test(configured)) {
+      throw new Error(`${name} must be a 4-6 digit PIN.`);
+    }
+    return configured;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(`${name} is required in production before the first database seed.`);
+  }
+  const generated = String(randomInt(100000, 1000000));
+  console.warn(`[SECURITY] Generated initial development PIN for ${name}: ${generated}. Change it after first login.`);
+  return generated;
+}
 
 function hashPin(pin: string, salt = randomBytes(16).toString('hex')) {
   const hash = scryptSync(pin, salt, 32, { N: 131072, r: 8, p: 1, maxmem: 256 * 1024 * 1024 }).toString('hex');
@@ -403,12 +419,16 @@ function seedInitialData() {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
+  const initialAdminPin = getInitialPin('HAYPOP_INITIAL_ADMIN_PIN');
+  const initialCashier1Pin = getInitialPin('HAYPOP_INITIAL_CASHIER1_PIN');
+  const initialCashier2Pin = getInitialPin('HAYPOP_INITIAL_CASHIER2_PIN');
+
   const initialUsers = [
     {
       id: 'usr-admin-1',
       name: 'Manager Owner Admin',
       username: 'admin',
-      pin: '1234',
+      pin: initialAdminPin,
       role: 'admin',
       avatar_color: 'bg-emerald-700',
       is_active: 1,
@@ -418,7 +438,7 @@ function seedInitialData() {
       id: 'usr-kasir-1',
       name: 'Siti Rahma (Kasir 1)',
       username: 'kasir1',
-      pin: '0000',
+      pin: initialCashier1Pin,
       role: 'kasir',
       avatar_color: 'bg-teal-600',
       is_active: 1,
@@ -428,7 +448,7 @@ function seedInitialData() {
       id: 'usr-kasir-2',
       name: 'Budi Santoso (Kasir 2)',
       username: 'kasir2',
-      pin: '1111',
+      pin: initialCashier2Pin,
       role: 'kasir',
       avatar_color: 'bg-emerald-600',
       is_active: 1,
