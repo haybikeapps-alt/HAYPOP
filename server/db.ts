@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'fs';
 import path from 'path';
+import { randomBytes, scryptSync } from 'node:crypto';
 
 // Ensure data folder exists
 const dataDir = path.resolve(process.cwd(), 'data');
@@ -10,6 +11,23 @@ if (!fs.existsSync(dataDir)) {
 
 const dbPath = path.join(dataDir, 'haypop.sqlite');
 export const db = new DatabaseSync(dbPath);
+
+function hashPin(pin: string, salt = randomBytes(16).toString('hex')) {
+  const hash = scryptSync(pin, salt, 32, { N: 131072, r: 8, p: 1, maxmem: 256 * 1024 * 1024 }).toString('hex');
+  return `scrypt$131072$8$1${salt}${hash}`;
+}
+
+function migrateUserPins() {
+  const columns = db.prepare('PRAGMA table_info(users)').all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === 'pin_hash')) {
+    db.exec('ALTER TABLE users ADD COLUMN pin_hash TEXT');
+  }
+
+  const legacyUsers = db.prepare('SELECT id, pin, pin_hash FROM users WHERE (pin_hash IS NULL OR pin_hash = \'\') AND pin IS NOT NULL AND pin != \'\'').all() as any[];
+  for (const user of legacyUsers) {
+    db.prepare('UPDATE users SET pin_hash = ?, pin = ? WHERE id = ?').run(hashPin(String(user.pin)), '', user.id);
+  }
+}
 
 // Initialize Tables
 export function initDatabase() {
@@ -32,7 +50,8 @@ export function initDatabase() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       username TEXT UNIQUE NOT NULL,
-      pin TEXT NOT NULL,
+      pin TEXT NOT NULL DEFAULT '',
+      pin_hash TEXT,
       role TEXT NOT NULL,
       avatar_color TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
@@ -74,7 +93,20 @@ export function initDatabase() {
       value TEXT NOT NULL,
       updated_at TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
   `);
+
+  // Migrate legacy plaintext PINs before any authentication request.
+  migrateUserPins();
 
   // Seed default data if database is brand new
   seedInitialData();
@@ -367,8 +399,8 @@ function seedInitialData() {
 
   // 2. Initial Users
   const insertUser = db.prepare(`
-    INSERT INTO users (id, name, username, pin, role, avatar_color, is_active, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO users (id, name, username, pin, pin_hash, role, avatar_color, is_active, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const initialUsers = [
@@ -405,7 +437,7 @@ function seedInitialData() {
   ];
 
   for (const u of initialUsers) {
-    insertUser.run(u.id, u.name, u.username, u.pin, u.role, u.avatar_color, u.is_active, u.created_at);
+    insertUser.run(u.id, u.name, u.username, '', hashPin(u.pin), u.role, u.avatar_color, u.is_active, u.created_at);
   }
 
   // 3. Initial Expenses
