@@ -7,6 +7,7 @@ import {
   getStoredProducts,
   syncAllDataWithDatabase,
 } from './utils/storage';
+import { apiGetCurrentUser } from './utils/api';
 import { Navbar, ActiveNavTab } from './components/Navbar';
 import { OfflineSyncBanner } from './components/OfflineSyncBanner';
 import { RoleSwitchModal } from './components/RoleSwitchModal';
@@ -20,30 +21,41 @@ import { AdminReceiptSettings } from './components/AdminReceiptSettings';
 import { AdminPaymentSettings } from './components/AdminPaymentSettings';
 
 export default function App() {
-  const [currentUser, setCurrentUserState] = useState<User>(() => getCurrentUser());
+  const [currentUser, setCurrentUserState] = useState<User | null>(() => getCurrentUser());
   const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => getStoreSettings());
   const [products, setProducts] = useState<Product[]>(() => getStoredProducts());
   const [activeTab, setActiveTab] = useState<ActiveNavTab>('pos');
   const [isRoleSwitchOpen, setIsRoleSwitchOpen] = useState(false);
 
-  // Safety check: if role is 'kasir', force active tab to be pos or history
+  // The browser copy is only a display cache. The server session is authoritative.
   useEffect(() => {
-    if (currentUser.role === 'kasir') {
-      if (activeTab !== 'pos' && activeTab !== 'history') {
-        setActiveTab('pos');
+    apiGetCurrentUser().then((user) => {
+      if (user) {
+        setCurrentUser(user);
+        setCurrentUserState(user);
+      } else {
+        setCurrentUserState(null);
       }
+    });
+  }, []);
+
+  // Safety check: if role is 'kasir', force active tab to be pos or history.
+  useEffect(() => {
+    if (currentUser?.role === 'kasir' && activeTab !== 'pos' && activeTab !== 'history') {
+      setActiveTab('pos');
     }
   }, [currentUser, activeTab]);
 
-  // Sync with persistent SQLite database on mount
+  // Sync with SQLite only after the server has authenticated the user.
   useEffect(() => {
+    if (!currentUser) return;
     syncAllDataWithDatabase().then((success) => {
       if (success) {
         setProducts(getStoredProducts());
         setStoreSettings(getStoreSettings());
       }
     });
-  }, []);
+  }, [currentUser]);
 
   const handleSelectUser = (newUser: User) => {
     setCurrentUser(newUser);
@@ -56,6 +68,18 @@ export default function App() {
   const handleRefreshData = () => {
     setProducts(getStoredProducts());
   };
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-stone-100 flex items-center justify-center">
+        <RoleSwitchModal
+          currentUser={null}
+          onSelectUser={handleSelectUser}
+          onClose={() => undefined}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-stone-100 flex flex-col text-stone-900 font-sans">
