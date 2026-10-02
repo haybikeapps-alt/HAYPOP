@@ -189,3 +189,17 @@ export interface SupplierPayableRecord {
   status: 'unpaid' | 'partial' | 'paid';
   createdAt: string;
 }
+
+export interface CustomerReceivableRecord {
+  id: string;
+  customerId: string;
+  customerName: string;
+  referenceNumber: string | null;
+  transactionId: string | null;
+  totalAmount: number;
+  paidAmount: number;
+  outstandingAmount: number;
+  dueDate: string | null;
+  status: 'unpaid' | 'partial' | 'paid';
+  createdAt: string;
+}
