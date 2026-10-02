@@ -199,23 +199,34 @@ app.get('/api/users', requireRole('admin'), (req, res) => {
 app.post('/api/users', requireRole('admin'), (req, res) => {
   try {
     const u = req.body;
+    const id = typeof u.id === 'string' && u.id.length <= 100 ? u.id : 'usr-' + Date.now();
+    const pin = typeof u.pin === 'string' ? u.pin : '';
+    const username = typeof u.username === 'string' ? u.username.trim().toLowerCase() : '';
+    if (!/^.{1,100}$/.test(String(u.name || '')) || !/^[a-zA-Z0-9_.-]{3,50}$/.test(username) || !/^\d{4,6}$/.test(pin)) {
+      return res.status(400).json({ error: 'Data pengguna tidak valid.' });
+    }
+    if (u.role !== 'admin' && u.role !== 'kasir') {
+      return res.status(400).json({ error: 'Role tidak valid.' });
+    }
+
     const stmt = db.prepare(`
-      INSERT OR REPLACE INTO users (id, name, username, pin, role, avatar_color, is_active, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, name, username, pin, pin_hash, role, avatar_color, is_active, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
-      u.id || 'usr-' + Date.now(),
-      u.name,
-      u.username,
-      u.pin,
+      id,
+      String(u.name).trim(),
+      username,
+      '',
+      hashUserPin(pin),
       u.role,
-      u.avatarColor,
-      u.isActive ? 1 : 0,
+      typeof u.avatarColor === 'string' ? u.avatarColor.slice(0, 100) : null,
+      u.isActive !== false ? 1 : 0,
       u.createdAt || new Date().toISOString()
     );
 
-    res.json({ success: true, id: u.id });
+    res.status(201).json({ success: true, id });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }
@@ -225,18 +236,26 @@ app.put('/api/users/:id', requireRole('admin'), (req, res) => {
   try {
     const id = req.params.id;
     const u = req.body;
-    const stmt = db.prepare(`
-      UPDATE users SET
-        name = ?,
-        username = ?,
-        pin = ?,
-        role = ?,
-        avatar_color = ?,
-        is_active = ?
-      WHERE id = ?
-    `);
+    const username = typeof u.username === 'string' ? u.username.trim().toLowerCase() : '';
+    if (!/^.{1,100}$/.test(String(u.name || '')) || !/^[a-zA-Z0-9_.-]{3,50}$/.test(username)) {
+      return res.status(400).json({ error: 'Data pengguna tidak valid.' });
+    }
+    if (u.role !== 'admin' && u.role !== 'kasir') {
+      return res.status(400).json({ error: 'Role tidak valid.' });
+    }
 
-    stmt.run(u.name, u.username, u.pin, u.role, u.avatarColor, u.isActive ? 1 : 0, id);
+    if (typeof u.pin === 'string' && u.pin.length > 0) {
+      if (!/^\d{4,6}$/.test(u.pin)) return res.status(400).json({ error: 'PIN harus 4-6 digit.' });
+      db.prepare(`
+        UPDATE users SET name = ?, username = ?, pin = ?, pin_hash = ?, role = ?, avatar_color = ?, is_active = ?
+        WHERE id = ?
+      `).run(String(u.name).trim(), username, '', hashUserPin(u.pin), u.role, u.avatarColor || null, u.isActive ? 1 : 0, id);
+    } else {
+      db.prepare(`
+        UPDATE users SET name = ?, username = ?, role = ?, avatar_color = ?, is_active = ?
+        WHERE id = ?
+      `).run(String(u.name).trim(), username, u.role, u.avatarColor || null, u.isActive ? 1 : 0, id);
+    }
     res.json({ success: true, id });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
@@ -255,7 +274,10 @@ app.delete('/api/users/:id', requireRole('admin'), (req, res) => {
 // 4. Transactions API (Atomic insert + stock reduction)
 app.get('/api/transactions', (req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM transactions ORDER BY timestamp DESC').all() as any[];
+    const isAdmin = req.auth?.role === 'admin';
+    const rows = (isAdmin
+      ? db.prepare('SELECT * FROM transactions ORDER BY timestamp DESC').all()
+      : db.prepare('SELECT * FROM transactions WHERE cashier_id = ? ORDER BY timestamp DESC').all(req.auth!.id)) as any[];
     const trxs = rows.map((t) => ({
       id: t.id,
       invoiceNumber: t.invoice_number,
@@ -283,6 +305,13 @@ app.get('/api/transactions', (req, res) => {
 app.post('/api/transactions', (req, res) => {
   try {
     const t = req.body;
+    if (!req.auth) return res.status(401).json({ error: 'Authentication required' });
+    if (!Array.isArray(t.items) || t.items.length === 0 || t.items.length > 100) {
+      return res.status(400).json({ error: 'Items transaksi tidak valid.' });
+    }
+    const transactionId = typeof t.id === 'string' && t.id.length <= 100 ? t.id : 'trx-' + Date.now();
+    const cashierId = req.auth.id;
+    const cashierName = req.auth.name;
 
     const insertStmt = db.prepare(`
       INSERT OR REPLACE INTO transactions (
@@ -292,10 +321,10 @@ app.post('/api/transactions', (req, res) => {
     `);
 
     insertStmt.run(
-      t.id || 'trx-' + Date.now(),
-      t.invoiceNumber,
-      t.cashierId,
-      t.cashierName,
+      transactionId,
+      String(t.invoiceNumber || transactionId).slice(0, 100),
+      cashierId,
+      cashierName,
       t.timestamp || new Date().toISOString(),
       JSON.stringify(t.items),
       t.subtotal,
@@ -320,9 +349,12 @@ app.post('/api/transactions', (req, res) => {
       }
     }
 
-    res.json({ success: true, id: t.id });
+    res.status(201).json({ success: true, id: transactionId });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    if (String((error as Error).message).includes('UNIQUE constraint')) {
+      return res.status(409).json({ error: 'Transaksi dengan ID tersebut sudah ada.' });
+    }
+    res.status(500).json({ error: 'Gagal menyimpan transaksi.' });
   }
 });
 
@@ -346,13 +378,19 @@ app.post('/api/sync', (req, res) => {
     let syncedCount = 0;
 
     for (const t of transactions) {
+      if (!t || typeof t.id !== 'string' || !Array.isArray(t.items) || t.items.length === 0 || t.items.length > 100) {
+        return res.status(400).json({ error: 'Payload sinkronisasi tidak valid.' });
+      }
+      if (req.auth?.role !== 'admin' && t.cashierId !== req.auth?.id) {
+        return res.status(403).json({ error: 'Transaksi bukan milik kasir yang sedang login.' });
+      }
       const existing = checkExisting.get(t.id);
       if (!existing) {
         insertStmt.run(
           t.id,
           t.invoiceNumber,
-          t.cashierId,
-          t.cashierName,
+          req.auth!.id,
+          req.auth!.name,
           t.timestamp,
           JSON.stringify(t.items),
           t.subtotal,
