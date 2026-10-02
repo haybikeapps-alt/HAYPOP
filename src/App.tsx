@@ -6,7 +6,11 @@ import {
   getStoreSettings,
   getStoredProducts,
 } from './utils/storage';
-import { apiGetCurrentUser } from './utils/api';
+import {
+  apiGetCurrentUser,
+  apiGetProducts,
+  apiGetStoreSettings,
+} from './utils/api';
 import { Navbar, ActiveNavTab } from './components/Navbar';
 import { OfflineSyncBanner } from './components/OfflineSyncBanner';
 import { RoleSwitchModal } from './components/RoleSwitchModal';
@@ -26,19 +30,27 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveNavTab>('pos');
   const [isRoleSwitchOpen, setIsRoleSwitchOpen] = useState(false);
 
-  // Supabase Auth session is authoritative; local state is display-only.
+  // Supabase Auth + PostgreSQL are authoritative. LocalStorage is only a fast cache.
   useEffect(() => {
     apiGetCurrentUser().then((user) => {
       if (user) {
         setCurrentUser(user);
         setCurrentUserState(user);
+
+        Promise.all([apiGetProducts(), apiGetStoreSettings()]).then(([freshProducts, freshSettings]) => {
+          if (freshProducts) {
+            setProducts(freshProducts);
+          }
+          if (freshSettings) {
+            setStoreSettings(freshSettings);
+          }
+        });
       } else {
         setCurrentUserState(null);
       }
     });
   }, []);
 
-  // Safety check: if role is 'kasir', force active tab to be pos or history.
   useEffect(() => {
     if (currentUser?.role === 'kasir' && activeTab !== 'pos' && activeTab !== 'history') {
       setActiveTab('pos');
@@ -53,7 +65,12 @@ export default function App() {
     }
   };
 
-  const handleRefreshData = () => {
+  const handleRefreshData = async () => {
+    const freshProducts = await apiGetProducts();
+    if (freshProducts) {
+      setProducts(freshProducts);
+      return;
+    }
     setProducts(getStoredProducts());
   };
 
@@ -71,10 +88,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-stone-100 flex flex-col text-stone-900 font-sans">
-      {/* Offline sync banner */}
       <OfflineSyncBanner onSyncComplete={handleRefreshData} />
-
-      {/* Main Top Navigation Header */}
       <Navbar
         currentUser={currentUser}
         activeTab={activeTab}
@@ -83,7 +97,6 @@ export default function App() {
         storeSettings={storeSettings}
       />
 
-      {/* Main View Area */}
       <main className="flex-1 flex flex-col">
         {activeTab === 'pos' && (
           <POSView
@@ -95,13 +108,9 @@ export default function App() {
         )}
 
         {activeTab === 'history' && (
-          <TransactionHistory
-            currentUser={currentUser}
-            storeSettings={storeSettings}
-          />
+          <TransactionHistory currentUser={currentUser} storeSettings={storeSettings} />
         )}
 
-        {/* Admin Only Views */}
         {currentUser.role === 'admin' && (
           <>
             {activeTab === 'analytics' && <AdminAnalytics />}
@@ -114,16 +123,12 @@ export default function App() {
               <AdminPaymentSettings onSettingsSaved={handleRefreshData} />
             )}
             {activeTab === 'receipt_settings' && (
-              <AdminReceiptSettings
-                settings={storeSettings}
-                onSettingsSaved={setStoreSettings}
-              />
+              <AdminReceiptSettings settings={storeSettings} onSettingsSaved={setStoreSettings} />
             )}
           </>
         )}
       </main>
 
-      {/* Role Switcher Modal */}
       {isRoleSwitchOpen && (
         <RoleSwitchModal
           currentUser={currentUser}
