@@ -698,3 +698,139 @@ export async function apiGetFinancialExpenseRecords(): Promise<FinancialExpenseR
 
   return records.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 }
+
+export async function apiCreateCustomerReceivable(input: {
+  customerId: string;
+  totalAmount: number;
+  referenceNumber: string;
+  dueDate: string | null;
+  transactionId?: string | null;
+}): Promise<{ success: boolean; id?: string; error?: string }> {
+  const { data, error } = await supabase.rpc('create_customer_receivable', {
+    p_customer_id: input.customerId,
+    p_total_amount: input.totalAmount,
+    p_reference_number: input.referenceNumber || null,
+    p_due_date: input.dueDate || null,
+    p_transaction_id: input.transactionId || null,
+  });
+  if (error) return { success: false, error: error.message };
+  return {
+    success: typeof data === 'string' && data.length > 0,
+    id: typeof data === 'string' ? data : undefined,
+    error: data ? undefined : 'Piutang pelanggan ditolak oleh sistem.',
+  };
+}
+
+export async function apiGetCustomerReceivableOptions(): Promise<Array<{ id: string; name: string }> | null> {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id, name')
+    .order('name');
+  if (error) return null;
+  return (data ?? []).map((row) => ({ id: String(row.id), name: String(row.name ?? '') }));
+}
+
+export async function apiGetCustomerReceivables(): Promise<import('../types').CustomerReceivableRecord[] | null> {
+  const { data: receivables, error } = await supabase
+    .from('customer_receivables')
+    .select('id, customer_id, transaction_id, reference_number, total_amount, due_date, status, created_at')
+    .order('created_at', { ascending: false });
+
+  if (error || !receivables) return null;
+
+  const customerIds = Array.from(new Set(receivables.map((row) => String(row.customer_id))));
+  const receivableIds = receivables.map((row) => String(row.id));
+
+  const [customersResult, paymentsResult] = await Promise.all([
+    customerIds.length
+      ? supabase.from('customers').select('id, name').in('id', customerIds)
+      : Promise.resolve({ data: [], error: null }),
+    receivableIds.length
+      ? supabase.from('customer_payments').select('receivable_id, amount').in('receivable_id', receivableIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (customersResult.error || paymentsResult.error) return null;
+
+  const customerMap = new Map<string, string>();
+  (customersResult.data ?? []).forEach((row) => customerMap.set(String(row.id), String(row.name ?? '')));
+
+  const paidMap = new Map<string, number>();
+  (paymentsResult.data ?? []).forEach((row) => {
+    const id = String(row.receivable_id);
+    paidMap.set(id, (paidMap.get(id) ?? 0) + Number(row.amount ?? 0));
+  });
+
+  return receivables.map((row) => {
+    const id = String(row.id);
+    const totalAmount = Number(row.total_amount ?? 0);
+    const paidAmount = paidMap.get(id) ?? 0;
+    const outstandingAmount = Math.max(0, totalAmount - paidAmount);
+    return {
+      id,
+      customerId: String(row.customer_id),
+      customerName: customerMap.get(String(row.customer_id)) ?? 'Pelanggan',
+      referenceNumber: row.reference_number ? String(row.reference_number) : null,
+      transactionId: row.transaction_id ? String(row.transaction_id) : null,
+      totalAmount,
+      paidAmount,
+      outstandingAmount,
+      dueDate: row.due_date ? String(row.due_date) : null,
+      status: outstandingAmount <= 0 ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid',
+      createdAt: String(row.created_at ?? ''),
+    };
+  });
+}
+
+export async function apiRecordCustomerPayment(input: {
+  receivableId: string;
+  accountId: string;
+  amount: number;
+  paymentDate?: string;
+  notes: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { data, error } = await supabase.rpc('record_customer_payment', {
+    p_receivable_id: input.receivableId,
+    p_account_id: input.accountId,
+    p_amount: input.amount,
+    p_payment_date: input.paymentDate || new Date().toISOString(),
+    p_notes: input.notes || null,
+  });
+  if (error) return { success: false, error: error.message };
+  return {
+    success: typeof data === 'string' && data.length > 0,
+    error: data ? undefined : 'Pembayaran piutang ditolak oleh sistem.',
+  };
+}
+
+export async function apiGetFinancialEntries(range?: { from: string; to: string }): Promise<Array<{
+  id: string;
+  accountId: string;
+  entryType: string;
+  direction: 'in' | 'out';
+  amount: number;
+  description: string | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  entryDate: string;
+}> | null> {
+  let query = supabase
+    .from('financial_entries')
+    .select('id, account_id, entry_type, direction, amount, description, reference_type, reference_id, entry_date')
+    .order('entry_date', { ascending: false });
+  if (range?.from) query = query.gte('entry_date', range.from);
+  if (range?.to) query = query.lt('entry_date', range.to);
+  const { data, error } = await query;
+  if (error) return null;
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    accountId: String(row.account_id),
+    entryType: String(row.entry_type),
+    direction: row.direction === 'out' ? 'out' : 'in',
+    amount: Number(row.amount ?? 0),
+    description: row.description ? String(row.description) : null,
+    referenceType: row.reference_type ? String(row.reference_type) : null,
+    referenceId: row.reference_id ? String(row.reference_id) : null,
+    entryDate: String(row.entry_date),
+  }));
+}
