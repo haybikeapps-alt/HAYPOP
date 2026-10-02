@@ -1,0 +1,6 @@
+{
+  "name": "HAYPOP - Kasir Pintar Modern",
+  "description": "Aplikasi POS Kasir modern untuk HAYPOP F&B dengan manajemen role kasir & admin, cetak struk bluetooth thermal, pembayaran QRIS & e-wallet, kalkulator BEP, dan sinkronisasi offline.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
