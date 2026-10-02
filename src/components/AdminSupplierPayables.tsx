@@ -8,9 +8,8 @@ import {
   RefreshCw,
   Truck,
 } from 'lucide-react';
-import { FinancialAccount } from '../types';
+import { FinancialAccount, SupplierPayableRecord } from '../types';
 import {
-  SupplierPayableRecord,
   apiCreateSupplierPayable,
   apiGetFinancialAccounts,
   apiGetSupplierPayables,
