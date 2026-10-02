@@ -283,3 +283,11 @@ revoke all on function public.create_transaction_with_stock(jsonb) from public;
 grant execute on function public.create_transaction_with_stock(jsonb) to authenticated;
 
 drop policy if exists "transactions_insert_own" on public.transactions;
+
+-- Transactions are immutable from the client. Refund/void operations must use
+-- a dedicated server-side workflow that also reverses stock correctly.
+drop policy if exists "transactions_admin_update" on public.transactions;
+drop policy if exists "transactions_admin_delete" on public.transactions;
+
+-- Audit records must only be written by trusted database workflows.
+drop policy if exists "audit_logs_insert_authenticated" on public.audit_logs;
