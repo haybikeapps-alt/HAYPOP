@@ -143,13 +143,11 @@ export const POSView: React.FC<POSViewProps> = ({
     { id: 'minuman', label: 'Minuman Segar', icon: Coffee },
     { id: 'makanan', label: 'Makanan & Ayam', icon: Utensils },
     { id: 'snack', label: 'Snack & Fries', icon: Cookie },
-    { id: 'cup', label: 'Cup & Kemasan', icon: GlassWater },
-    { id: 'topping', label: 'Topping Terpisah', icon: Cherry },
   ];
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row min-h-[calc(100vh-4rem)] bg-stone-100">
-      {/* LEFT: Products Catalog */}
+      {/* LEFT: Etalase Produk — Cup & Topping dipilih saat checkout */}
       <div className="flex-1 flex flex-col p-4 sm:p-6 overflow-y-auto max-w-7xl mx-auto w-full">
         {/* Top Controls: Search & Category tabs */}
         <div className="space-y-4 mb-6">
@@ -161,7 +159,7 @@ export const POSView: React.FC<POSViewProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari minuman, ayam popcorn, topping..."
+                placeholder="Cari minuman, ayam popcorn, paket..."
                 className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-stone-200 text-xs sm:text-sm font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-hidden shadow-xs transition"
               />
               {searchQuery && (
@@ -248,7 +246,7 @@ export const POSView: React.FC<POSViewProps> = ({
                     <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-white text-[11px]">
                       <span className="flex items-center gap-1 font-semibold text-emerald-200 drop-shadow-xs">
                         <Sparkles className="w-3 h-3 text-emerald-400" />
-                        Pilihan Topping & Varian
+                        Pilihan & Varian
                       </span>
                     </div>
                   )}
@@ -325,7 +323,7 @@ export const POSView: React.FC<POSViewProps> = ({
               <div>
                 <p className="font-bold text-sm text-stone-700">Keranjang Masih Kosong</p>
                 <p className="text-xs text-stone-400 mt-1 max-w-[220px]">
-                  Pilih menu di sebelah kiri untuk menyesuaikan ukuran, boba, topping, dan rasa.
+                  Pilih menu di sebelah kiri untuk memilih ukuran, rasa, cup, dan topping.
                 </p>
               </div>
             </div>
