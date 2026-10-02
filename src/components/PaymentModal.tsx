@@ -19,7 +19,6 @@ import {
   Transaction,
   User,
   StoreSettings,
-  CustomerData,
 } from '../types';
 import {
   formatRupiah,
@@ -56,7 +55,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [method, setMethod] = useState<PaymentMethod>('qris');
   const paymentAccounts = getPaymentAccountSettings();
 
-  // Customer info & E2E Encryption (Optional)
   const [copiedBank, setCopiedBank] = useState(false);
 
   // Cash calculation
