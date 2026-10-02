@@ -10,8 +10,6 @@ import {
   Utensils,
   Cookie,
   Layers,
-  GlassWater,
-  Cherry,
   ArrowRight,
   SlidersHorizontal,
   Check,
