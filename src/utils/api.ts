@@ -238,14 +238,11 @@ export async function apiGetTransactions(): Promise<Transaction[] | null> {
   return error ? null : (data ?? []).map(mapTransaction);
 }
 
-export async function apiSaveTransaction(transaction: Transaction): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user || user.id !== transaction.cashierId) return false;
-
-  const { error } = await supabase.from('transactions').upsert({
+function transactionRpcPayload(transaction: Transaction, userId: string) {
+  return {
     id: transaction.id,
     invoice_number: transaction.invoiceNumber,
-    cashier_id: user.id,
+    cashier_id: userId,
     cashier_name: transaction.cashierName,
     timestamp: transaction.timestamp,
     items: transaction.items,
@@ -257,10 +254,18 @@ export async function apiSaveTransaction(transaction: Transaction): Promise<bool
     amount_paid: transaction.amountPaid,
     change: transaction.change,
     customer_snapshot: transaction.customer ?? null,
-    is_synced: true,
-    sync_timestamp: new Date().toISOString(),
+  };
+}
+
+export async function apiSaveTransaction(transaction: Transaction): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || user.id !== transaction.cashierId) return false;
+
+  const { data, error } = await supabase.rpc('create_transaction_with_stock', {
+    p_transaction: transactionRpcPayload(transaction, user.id),
   });
-  return !error;
+
+  return !error && data === true;
 }
 
 export async function apiSyncBatchTransactions(transactions: Transaction[]): Promise<{ success: boolean; syncedCount: number }> {
@@ -270,29 +275,20 @@ export async function apiSyncBatchTransactions(transactions: Transaction[]): Pro
   const ownTransactions = transactions.filter((transaction) => transaction.cashierId === user.id);
   if (ownTransactions.length === 0) return { success: true, syncedCount: 0 };
 
-  const rows = ownTransactions.map((transaction) => ({
-    id: transaction.id,
-    invoice_number: transaction.invoiceNumber,
-    cashier_id: user.id,
-    cashier_name: transaction.cashierName,
-    timestamp: transaction.timestamp,
-    items: transaction.items,
-    subtotal: transaction.subtotal,
-    discount: transaction.discount,
-    tax: transaction.tax,
-    total_amount: transaction.totalAmount,
-    payment_method: transaction.paymentMethod,
-    amount_paid: transaction.amountPaid,
-    change: transaction.change,
-    customer_snapshot: transaction.customer ?? null,
-    is_synced: true,
-    sync_timestamp: new Date().toISOString(),
-  }));
+  let syncedCount = 0;
+  for (const transaction of ownTransactions) {
+    const { data, error } = await supabase.rpc('create_transaction_with_stock', {
+      p_transaction: transactionRpcPayload(transaction, user.id),
+    });
 
-  const { error } = await supabase.from('transactions').upsert(rows);
-  return error
-    ? { success: false, syncedCount: 0 }
-    : { success: true, syncedCount: rows.length };
+    if (error || data !== true) {
+      return { success: false, syncedCount };
+    }
+
+    syncedCount += 1;
+  }
+
+  return { success: true, syncedCount };
 }
 
 export async function apiGetExpenses(): Promise<ExpenseRecord[] | null> {
