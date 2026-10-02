@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { CalendarRange, Download, RefreshCw, Wallet, TrendingUp, TrendingDown, CreditCard, Truck, Users } from 'lucide-react';
 import { FinancialAccount, SupplierPayableRecord, CustomerReceivableRecord } from '../types';
 import { apiGetCustomerReceivables, apiGetFinancialAccounts, apiGetFinancialEntries, apiGetSupplierPayables } from '../utils/api';
