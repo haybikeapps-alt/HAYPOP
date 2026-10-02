@@ -307,23 +307,14 @@ export function getStoredUsers(): User[] {
   const data = localStorage.getItem(STORAGE_KEYS.USERS);
   if (!data) return [];
   try {
-    return JSON.parse(data).map((u: User) => {
-      const safe = { ...u };
-      delete safe.pin;
-      return safe;
-    });
+    return JSON.parse(data);
   } catch {
     return [];
   }
 }
 
 export function saveStoredUsers(users: User[]): void {
-  const safeUsers = users.map((u) => {
-    const safe = { ...u };
-    delete safe.pin;
-    return safe;
-  });
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(safeUsers));
+  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
   users.forEach((u) => apiSaveUser(u).catch(() => {}));
 }
 
@@ -331,9 +322,7 @@ export function getCurrentUser(): User | null {
   const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
   if (!data) return null;
   try {
-    const user = JSON.parse(data) as User;
-    delete user.pin;
-    return user;
+    return JSON.parse(data) as User;
   } catch {
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     return null;
@@ -341,9 +330,7 @@ export function getCurrentUser(): User | null {
 }
 
 export function setCurrentUser(user: User): void {
-  const safeUser = { ...user };
-  delete safeUser.pin;
-  localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(safeUser));
+  localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
 }
 
 export function getStoredTransactions(): Transaction[] {
