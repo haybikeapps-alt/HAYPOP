@@ -16,7 +16,6 @@ import { OfflineSyncBanner } from './components/OfflineSyncBanner';
 import { RoleSwitchModal } from './components/RoleSwitchModal';
 import { POSView } from './components/POSView';
 import { TransactionHistory } from './components/TransactionHistory';
-import { AdminFinancialReport } from './components/AdminFinancialReport';
 import { AdminFinancialAccounts } from './components/AdminFinancialAccounts';
 import { AdminExpenseManagement } from './components/AdminExpenseManagement';
 import { AdminSupplierPayables } from './components/AdminSupplierPayables';
