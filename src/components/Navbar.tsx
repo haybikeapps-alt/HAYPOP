@@ -14,6 +14,7 @@ import {
   X,
   Coffee,
   CreditCard,
+  Wallet,
 } from 'lucide-react';
 import { User, StoreSettings } from '../types';
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -25,6 +26,7 @@ export type ActiveNavTab =
   | 'history'
   | 'analytics'
   | 'finance'
+  | 'financial_accounts'
   | 'inventory'
   | 'users'
   | 'payment_settings'
@@ -71,6 +73,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'history', label: 'Riwayat Transaksi', icon: History, adminOnly: false },
     { id: 'analytics', label: 'Dasbor Analitik', icon: BarChart3, adminOnly: true },
     { id: 'finance', label: 'Laporan & BEP', icon: TrendingUp, adminOnly: true },
+    { id: 'financial_accounts', label: 'Rekening & Saldo', icon: Wallet, adminOnly: true },
     { id: 'inventory', label: 'Kelola Stok & Menu', icon: Boxes, adminOnly: true },
     { id: 'payment_settings', label: 'Pengaturan Pembayaran', icon: CreditCard, adminOnly: true },
     { id: 'receipt_settings', label: 'Pengaturan Struk', icon: Printer, adminOnly: true },
