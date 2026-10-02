@@ -26,6 +26,7 @@ import {
   queueOfflineTransaction,
   getPaymentAccountSettings,
 } from '../utils/storage';
+import { apiSaveTransaction } from '../utils/api';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 interface PaymentModalProps {
@@ -106,7 +107,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         quantity: c.quantity,
         unitPrice: c.unitPrice,
         totalPrice: c.totalPrice,
-        modifiersSummary: c.selectedModifiers.map((m) => `${m.name}`),
+        modifiersSummary: c.selectedModifiers.map((m) => m.name),
+        modifierOptionIds: c.selectedModifiers.map((m) => m.optionId),
         note: c.specialNote,
       })),
       subtotal,
@@ -120,8 +122,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       isSynced: isOnline,
     };
 
-    saveTransaction(newTrx);
-    if (!isOnline) {
+    if (isOnline) {
+      const saved = await apiSaveTransaction(newTrx);
+      if (!saved) {
+        setIsProcessing(false);
+        return;
+      }
+      saveTransaction(newTrx, { syncDatabase: false });
+    } else {
+      saveTransaction(newTrx, { syncDatabase: false });
       queueOfflineTransaction(newTrx);
     }
 
