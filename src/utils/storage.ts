@@ -314,7 +314,6 @@ const INITIAL_USERS: User[] = [
     id: 'usr-admin-1',
     name: 'Manager Owner Admin',
     username: 'admin',
-    pin: '1234',
     role: 'admin',
     avatarColor: 'bg-emerald-700',
     isActive: true,
@@ -324,7 +323,6 @@ const INITIAL_USERS: User[] = [
     id: 'usr-kasir-1',
     name: 'Siti Rahma (Kasir 1)',
     username: 'kasir1',
-    pin: '0000',
     role: 'kasir',
     avatarColor: 'bg-emerald-600',
     isActive: true,
@@ -334,7 +332,6 @@ const INITIAL_USERS: User[] = [
     id: 'usr-kasir-2',
     name: 'Budi Santoso (Kasir 2)',
     username: 'kasir2',
-    pin: '1111',
     role: 'kasir',
     avatarColor: 'bg-blue-600',
     isActive: true,
@@ -548,7 +545,7 @@ export function getStoredProducts(): Product[] {
 
 export function saveStoredProducts(products: Product[]): void {
   localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
-  // Asynchronously persist to backend SQLite database
+  // Asynchronously persist to Supabase backend
   products.forEach((p) => {
     apiSaveProduct(p).catch(() => {});
   });
@@ -556,42 +553,54 @@ export function saveStoredProducts(products: Product[]): void {
 
 export function getStoredUsers(): User[] {
   const data = localStorage.getItem(STORAGE_KEYS.USERS);
+  const sanitize = (users: User[]) => users.map((u) => {
+    const safe = { ...u };
+    delete safe.pin;
+    return safe;
+  });
   if (!data) {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS));
-    return INITIAL_USERS;
+    const safeUsers = sanitize(INITIAL_USERS);
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(safeUsers));
+    return safeUsers;
   }
   try {
-    return JSON.parse(data);
+    const safeUsers = sanitize(JSON.parse(data));
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(safeUsers));
+    return safeUsers;
   } catch {
-    return INITIAL_USERS;
+    return sanitize(INITIAL_USERS);
   }
 }
 
 export function saveStoredUsers(users: User[]): void {
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-  // Asynchronously persist to backend SQLite database
+  const safeUsers = users.map((u) => {
+    const safe = { ...u };
+    delete safe.pin;
+    return safe;
+  });
+  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(safeUsers));
   users.forEach((u) => {
     apiSaveUser(u).catch(() => {});
   });
 }
 
-export function getCurrentUser(): User {
+export function getCurrentUser(): User | null {
   const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-  if (!data) {
-    // Default to Cashier 1 for immediate sales test, easily switched to Admin in 1 click
-    const defaultUser = INITIAL_USERS[1]; // Siti Rahma (kasir)
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(defaultUser));
-    return defaultUser;
-  }
+  if (!data) return null;
   try {
-    return JSON.parse(data);
+    const user = JSON.parse(data) as User;
+    delete user.pin;
+    return user;
   } catch {
-    return INITIAL_USERS[1];
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    return null;
   }
 }
 
 export function setCurrentUser(user: User): void {
-  localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+  const safeUser = { ...user };
+  delete safeUser.pin;
+  localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(safeUser));
 }
 
 export function getStoredTransactions(): Transaction[] {
@@ -626,7 +635,7 @@ export function saveTransaction(trx: Transaction): void {
     saveStoredProducts(products);
   }
 
-  // Persist directly to backend SQLite database
+  // Persist directly to Supabase backend
   apiSaveTransaction(trx).catch(() => {
     // If backend is unreachable or offline, queue for sync
     queueOfflineTransaction(trx);
@@ -747,13 +756,13 @@ export function savePaymentAccountSettings(settings: PaymentAccountSettings): vo
   apiSavePaymentSettings(settings).catch(() => {});
 }
 
-// Master bidirectional sync with backend SQLite database
+// Master bidirectional sync with Supabase backend
 export async function syncAllDataWithDatabase(): Promise<boolean> {
   try {
     // 1. Sync offline queue first
     await syncOfflineQueueWithDatabase();
 
-    // 2. Fetch all fresh records from SQLite server
+    // 2. Fetch all fresh records from Supabase
     const [dbProducts, dbUsers, dbTrxs, dbExpenses, dbSettings, dbPaySettings] = await Promise.all([
       apiGetProducts(),
       apiGetUsers(),
