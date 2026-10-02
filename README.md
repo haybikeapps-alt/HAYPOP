@@ -1,20 +1,27 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# HAYPOP
 
-# Run and deploy your AI Studio app
+HAYPOP adalah aplikasi POS (Point of Sale) untuk operasional F&B, dengan dukungan kasir, inventaris, transaksi, pengeluaran, pengaturan pembayaran, laporan, dan sinkronisasi offline.
 
-This contains everything you need to run your app locally.
+## Teknologi
 
-View your app in AI Studio: https://ai.studio/apps/37f1281d-5863-45dc-92c7-31e9d7ed76f3
+- React + TypeScript
+- Vite
+- Express
+- SQLite (`node:sqlite`)
+- Tailwind CSS
+- PWA
 
-## Run Locally
+## Menjalankan secara lokal
 
-**Prerequisites:**  Node.js
+Prasyarat: Node.js yang mendukung `node:sqlite`.
 
+1. Install dependencies: `bun install`
+2. Jalankan aplikasi: `bun run dev`
+3. Buka alamat yang ditampilkan oleh server.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Build dan pemeriksaan tipe
+
+- `bun run build`
+- `bun run lint`
+
+> HAYPOP tidak bergantung pada Google AI Studio atau Gemini API.
