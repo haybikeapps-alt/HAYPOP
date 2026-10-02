@@ -27,7 +27,7 @@ export const AdminUserManagement: React.FC<{ currentUser: User }> = ({ currentUs
     setEditingUser(u);
     setName(u.name);
     setUsername(u.username);
-    setPin(u.pin);
+    setPin('');
     setRole(u.role);
     setIsModalOpen(true);
   };
@@ -61,8 +61,12 @@ export const AdminUserManagement: React.FC<{ currentUser: User }> = ({ currentUs
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pin || pin.length < 4) {
-      alert('PIN harus terdiri dari minimal 4 angka.');
+    if (!editingUser && !/^\d{4,6}$/.test(pin)) {
+      alert('PIN pengguna baru harus terdiri dari 4-6 angka.');
+      return;
+    }
+    if (pin && !/^\d{4,6}$/.test(pin)) {
+      alert('PIN harus terdiri dari 4-6 angka.');
       return;
     }
 
@@ -181,7 +185,7 @@ export const AdminUserManagement: React.FC<{ currentUser: User }> = ({ currentUs
                   </td>
 
                   <td className="py-3.5 px-4 font-mono font-bold text-stone-700 tracking-wider">
-                    •••• ({u.pin})
+                    •••••• (tidak ditampilkan)
                   </td>
 
                   <td className="py-3.5 px-4 whitespace-nowrap">
@@ -276,7 +280,7 @@ export const AdminUserManagement: React.FC<{ currentUser: User }> = ({ currentUs
                   maxLength={6}
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  placeholder="Contoh: 1234"
+                  placeholder={editingUser ? "Kosongkan jika tidak diubah" : "Contoh: 1234"}
                   className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-stone-300 font-mono tracking-widest text-center text-sm font-bold focus:border-emerald-500 outline-hidden"
                 />
               </div>
