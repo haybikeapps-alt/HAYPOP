@@ -545,7 +545,7 @@ export function getStoredProducts(): Product[] {
 
 export function saveStoredProducts(products: Product[]): void {
   localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
-  // Asynchronously persist to backend SQLite database
+  // Asynchronously persist to Supabase backend
   products.forEach((p) => {
     apiSaveProduct(p).catch(() => {});
   });
@@ -635,7 +635,7 @@ export function saveTransaction(trx: Transaction): void {
     saveStoredProducts(products);
   }
 
-  // Persist directly to backend SQLite database
+  // Persist directly to Supabase backend
   apiSaveTransaction(trx).catch(() => {
     // If backend is unreachable or offline, queue for sync
     queueOfflineTransaction(trx);
@@ -756,13 +756,13 @@ export function savePaymentAccountSettings(settings: PaymentAccountSettings): vo
   apiSavePaymentSettings(settings).catch(() => {});
 }
 
-// Master bidirectional sync with backend SQLite database
+// Master bidirectional sync with Supabase backend
 export async function syncAllDataWithDatabase(): Promise<boolean> {
   try {
     // 1. Sync offline queue first
     await syncOfflineQueueWithDatabase();
 
-    // 2. Fetch all fresh records from SQLite server
+    // 2. Fetch all fresh records from Supabase
     const [dbProducts, dbUsers, dbTrxs, dbExpenses, dbSettings, dbPaySettings] = await Promise.all([
       apiGetProducts(),
       apiGetUsers(),
