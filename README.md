@@ -1,20 +1,32 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# HAYPOP — Kasir Pintar Modern
 
-# Run and deploy your AI Studio app
+Aplikasi POS untuk HAYPOP F&B dengan manajemen kasir/admin, inventori, transaksi, pembayaran, laporan keuangan, pengaturan struk, dan penyimpanan SQLite persisten.
 
-This contains everything you need to run your app locally.
+## Menjalankan aplikasi
 
-View your app in AI Studio: https://ai.studio/apps/37f1281d-5863-45dc-92c7-31e9d7ed76f3
+Prasyarat: Node.js dan Bun.
 
-## Run Locally
+    bun install
+    bun run dev
 
-**Prerequisites:**  Node.js
+Build produksi:
 
+    bun run build
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Type-check:
+
+    bun run lint
+
+Server aplikasi dijalankan melalui server.ts dan menggunakan SQLite untuk penyimpanan persisten lokal.
+
+## Struktur utama
+
+- src/ — aplikasi React dan komponen UI.
+- server.ts — REST API dan static server.
+- server/db.ts — skema dan inisialisasi SQLite.
+- public/ — aset PWA.
+- vite.config.ts — konfigurasi Vite dan PWA.
+
+## Catatan konfigurasi
+
+Tidak ada konfigurasi Google AI Studio yang diperlukan untuk menjalankan HAYPOP.
