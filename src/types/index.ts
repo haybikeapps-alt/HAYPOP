@@ -175,3 +175,17 @@ export interface BluetoothPrinterConfig {
   connected: boolean;
   paperWidth: '58mm' | '80mm';
 }
+
+export interface SupplierPayableRecord {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  referenceNumber: string | null;
+  description: string | null;
+  totalAmount: number;
+  paidAmount: number;
+  outstandingAmount: number;
+  dueDate: string | null;
+  status: 'unpaid' | 'partial' | 'paid';
+  createdAt: string;
+}

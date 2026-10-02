@@ -6,6 +6,7 @@ import {
   StoreSettings,
   PaymentAccountSettings,
   FinancialAccount,
+  SupplierPayableRecord,
 } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -505,6 +506,118 @@ export async function apiRecordPrive(input: {
   });
   if (error) return { success: false, error: error.message };
   return { success: typeof data === 'string' && data.length > 0, error: data ? undefined : 'Prive ditolak oleh sistem.' };
+}
+
+export async function apiGetSupplierOptions(): Promise<Array<{ id: string; name: string }> | null> {
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('id, name')
+    .order('name');
+
+  if (error) return null;
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    name: String(row.name ?? ''),
+  }));
+}
+
+export async function apiGetSupplierPayables(): Promise<SupplierPayableRecord[] | null> {
+  const { data: payables, error } = await supabase
+    .from('supplier_payables')
+    .select('id, supplier_id, reference_number, description, total_amount, due_date, status, created_at')
+    .order('created_at', { ascending: false });
+
+  if (error || !payables) return null;
+
+  const supplierIds = Array.from(new Set(payables.map((row) => String(row.supplier_id))));
+  const payableIds = payables.map((row) => String(row.id));
+
+  const [suppliersResult, paymentsResult] = await Promise.all([
+    supplierIds.length > 0
+      ? supabase.from('suppliers').select('id, name').in('id', supplierIds)
+      : Promise.resolve({ data: [], error: null }),
+    payableIds.length > 0
+      ? supabase.from('supplier_payments').select('payable_id, amount').in('payable_id', payableIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (suppliersResult.error || paymentsResult.error) return null;
+
+  const supplierMap = new Map<string, string>();
+  (suppliersResult.data ?? []).forEach((row) => {
+    supplierMap.set(String(row.id), String(row.name ?? ''));
+  });
+
+  const paidMap = new Map<string, number>();
+  (paymentsResult.data ?? []).forEach((row) => {
+    const payableId = String(row.payable_id);
+    paidMap.set(payableId, (paidMap.get(payableId) ?? 0) + Number(row.amount ?? 0));
+  });
+
+  return payables.map((row) => {
+    const id = String(row.id);
+    const totalAmount = Number(row.total_amount ?? 0);
+    const paidAmount = paidMap.get(id) ?? 0;
+    const outstandingAmount = Math.max(0, totalAmount - paidAmount);
+    const status: SupplierPayableRecord['status'] =
+      outstandingAmount <= 0 ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid';
+
+    return {
+      id,
+      supplierId: String(row.supplier_id),
+      supplierName: supplierMap.get(String(row.supplier_id)) ?? 'Supplier',
+      referenceNumber: row.reference_number ? String(row.reference_number) : null,
+      description: row.description ? String(row.description) : null,
+      totalAmount,
+      paidAmount,
+      outstandingAmount,
+      dueDate: row.due_date ? String(row.due_date) : null,
+      status,
+      createdAt: String(row.created_at ?? ''),
+    };
+  });
+}
+
+export async function apiCreateSupplierPayable(input: {
+  supplierId: string;
+  totalAmount: number;
+  referenceNumber: string;
+  description: string;
+  dueDate: string | null;
+}): Promise<{ success: boolean; error?: string }> {
+  const { data, error } = await supabase.rpc('create_supplier_payable', {
+    p_supplier_id: input.supplierId,
+    p_total_amount: input.totalAmount,
+    p_reference_number: input.referenceNumber || null,
+    p_description: input.description || null,
+    p_due_date: input.dueDate || null,
+  });
+
+  if (error) return { success: false, error: error.message };
+  return {
+    success: typeof data === 'string' && data.length > 0,
+    error: data ? undefined : 'Hutang supplier ditolak oleh sistem.',
+  };
+}
+
+export async function apiRecordSupplierPayment(input: {
+  payableId: string;
+  accountId: string;
+  amount: number;
+  notes: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { data, error } = await supabase.rpc('record_supplier_payment', {
+    p_payable_id: input.payableId,
+    p_account_id: input.accountId,
+    p_amount: input.amount,
+    p_notes: input.notes || null,
+  });
+
+  if (error) return { success: false, error: error.message };
+  return {
+    success: typeof data === 'string' && data.length > 0,
+    error: data ? undefined : 'Pembayaran hutang supplier ditolak oleh sistem.',
+  };
 }
 
 export async function apiGetFinancialExpenseRecords(): Promise<FinancialExpenseRecord[] | null> {
