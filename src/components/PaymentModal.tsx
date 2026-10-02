@@ -65,6 +65,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   // QRIS Countdown timer (starts at 300 seconds / 5 mins)
   const [qrisTimer, setQrisTimer] = useState(300);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
 
   useEffect(() => {
     if (method === 'qris') {
@@ -88,6 +89,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleProcessTransaction = async (paidAmount: number) => {
+    if (isProcessing) return;
+    setPaymentError('');
     setIsProcessing(true);
 
     const now = new Date();
@@ -125,6 +128,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (isOnline) {
       const saved = await apiSaveTransaction(newTrx);
       if (!saved) {
+        setPaymentError('Transaksi belum tersimpan ke database. Periksa koneksi lalu coba lagi. Pembayaran belum dinyatakan berhasil.');
         setIsProcessing(false);
         return;
       }
@@ -190,6 +194,24 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Payment Error */}
+        {paymentError && (
+          <div className="mx-5 mt-4 shrink-0 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <X className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold">Pembayaran belum selesai</p>
+                <p className="mt-1 text-xs leading-5 text-red-800">{paymentError}</p>
+              </div>
+              <button type="button" onClick={() => setPaymentError('')} className="rounded-lg p-1 text-red-500 hover:bg-red-100 hover:text-red-700 cursor-pointer" aria-label="Tutup pesan error">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Content Body */}
         <div className="p-5 overflow-y-auto space-y-5 flex-1">
