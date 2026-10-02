@@ -2,22 +2,58 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { db, initDatabase } from './server/db.ts';
+import { authenticateUser, clearSession, cleanupExpiredSessions, hashUserPin, requireAuth, requireRole, setSessionCookie } from './server/auth.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Initialize database schema and initial data
 initDatabase();
+cleanupExpiredSessions();
 
 const app = express();
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+
+// Authentication endpoints remain public; all business APIs below require a server-side session.
+app.post('/api/auth/login', (req, res) => {
+  const username = typeof req.body?.username === 'string' ? req.body.username : '';
+  const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
+  if (!/^[a-zA-Z0-9_.-]{3,50}$/.test(username) || !/^\d{4,6}$/.test(pin)) {
+    return res.status(400).json({ error: 'Username atau PIN tidak valid.' });
+  }
+
+  const result = authenticateUser(username, pin, req.ip || 'unknown');
+  if (!result.ok) return res.status(result.status).json({ error: result.message });
+
+  setSessionCookie(res, result.token);
+  return res.json({ user: result.user, expiresAt: result.expiresAt });
+});
+
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  res.json({ user: req.auth });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  clearSession(req, res);
+  res.json({ success: true });
+});
+
+app.use('/api/database/status', requireAuth);
+app.use('/api/products', requireAuth);
+app.use('/api/users', requireAuth);
+app.use('/api/transactions', requireAuth);
+app.use('/api/sync', requireAuth);
+app.use('/api/expenses', requireAuth);
+app.use('/api/settings', requireAuth);
+app.use('/api/payment-settings', requireAuth);
+app.use('/api/database/backup', requireAuth);
 
 // ==========================================
 // REST API ROUTES
 // ==========================================
 
 // 1. Database Health & Status
-app.get('/api/database/status', (req, res) => {
+app.get('/api/database/status', requireRole('admin'), (req, res) => {
   try {
     const prodCount = (db.prepare('SELECT count(*) as count FROM products').get() as { count: number }).count;
     const userCount = (db.prepare('SELECT count(*) as count FROM users').get() as { count: number }).count;
@@ -65,7 +101,7 @@ app.get('/api/products', (req, res) => {
   }
 });
 
-app.post('/api/products', (req, res) => {
+app.post('/api/products', requireRole('admin'), (req, res) => {
   try {
     const p = req.body;
     const stmt = db.prepare(`
@@ -87,13 +123,13 @@ app.post('/api/products', (req, res) => {
       new Date().toISOString()
     );
 
-    res.json({ success: true, id: p.id });
+    res.json({ success: true, id: p.id || p.id });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }
 });
 
-app.put('/api/products/:id', (req, res) => {
+app.put('/api/products/:id', requireRole('admin'), (req, res) => {
   try {
     const id = req.params.id;
     const p = req.body;
@@ -132,7 +168,7 @@ app.put('/api/products/:id', (req, res) => {
   }
 });
 
-app.delete('/api/products/:id', (req, res) => {
+app.delete('/api/products/:id', requireRole('admin'), (req, res) => {
   try {
     db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
     res.json({ success: true });
@@ -142,14 +178,13 @@ app.delete('/api/products/:id', (req, res) => {
 });
 
 // 3. Users API
-app.get('/api/users', (req, res) => {
+app.get('/api/users', requireRole('admin'), (req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM users ORDER BY role, name').all() as any[];
+    const rows = db.prepare('SELECT id, name, username, role, avatar_color, is_active, created_at FROM users ORDER BY role, name').all() as any[];
     const users = rows.map((u) => ({
       id: u.id,
       name: u.name,
       username: u.username,
-      pin: u.pin,
       role: u.role,
       avatarColor: u.avatar_color,
       isActive: Boolean(u.is_active),
@@ -161,7 +196,7 @@ app.get('/api/users', (req, res) => {
   }
 });
 
-app.post('/api/users', (req, res) => {
+app.post('/api/users', requireRole('admin'), (req, res) => {
   try {
     const u = req.body;
     const stmt = db.prepare(`
@@ -186,7 +221,7 @@ app.post('/api/users', (req, res) => {
   }
 });
 
-app.put('/api/users/:id', (req, res) => {
+app.put('/api/users/:id', requireRole('admin'), (req, res) => {
   try {
     const id = req.params.id;
     const u = req.body;
@@ -208,7 +243,7 @@ app.put('/api/users/:id', (req, res) => {
   }
 });
 
-app.delete('/api/users/:id', (req, res) => {
+app.delete('/api/users/:id', requireRole('admin'), (req, res) => {
   try {
     db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
     res.json({ success: true });
@@ -350,7 +385,7 @@ app.post('/api/sync', (req, res) => {
 });
 
 // 6. Expenses API
-app.get('/api/expenses', (req, res) => {
+app.get('/api/expenses', requireRole('admin'), (req, res) => {
   try {
     const rows = db.prepare('SELECT * FROM expenses ORDER BY date DESC, timestamp DESC').all() as any[];
     const expenses = rows.map((e) => ({
@@ -369,7 +404,7 @@ app.get('/api/expenses', (req, res) => {
   }
 });
 
-app.post('/api/expenses', (req, res) => {
+app.post('/api/expenses', requireRole('admin'), (req, res) => {
   try {
     const e = req.body;
     const stmt = db.prepare(`
@@ -394,7 +429,7 @@ app.post('/api/expenses', (req, res) => {
   }
 });
 
-app.delete('/api/expenses/:id', (req, res) => {
+app.delete('/api/expenses/:id', requireRole('admin'), (req, res) => {
   try {
     db.prepare('DELETE FROM expenses WHERE id = ?').run(req.params.id);
     res.json({ success: true });
@@ -417,7 +452,7 @@ app.get('/api/settings', (req, res) => {
   }
 });
 
-app.post('/api/settings', (req, res) => {
+app.post('/api/settings', requireRole('admin'), (req, res) => {
   try {
     const stmt = db.prepare('INSERT OR REPLACE INTO key_value_store (key, value, updated_at) VALUES (?, ?, ?)');
     stmt.run('store_settings', JSON.stringify(req.body), new Date().toISOString());
@@ -428,7 +463,7 @@ app.post('/api/settings', (req, res) => {
 });
 
 // 8. Payment Settings API
-app.get('/api/payment-settings', (req, res) => {
+app.get('/api/payment-settings', requireRole('admin'), (req, res) => {
   try {
     const row = db.prepare('SELECT value FROM key_value_store WHERE key = ?').get('payment_settings') as any;
     if (row && row.value) {
@@ -441,7 +476,7 @@ app.get('/api/payment-settings', (req, res) => {
   }
 });
 
-app.post('/api/payment-settings', (req, res) => {
+app.post('/api/payment-settings', requireRole('admin'), (req, res) => {
   try {
     const stmt = db.prepare('INSERT OR REPLACE INTO key_value_store (key, value, updated_at) VALUES (?, ?, ?)');
     stmt.run('payment_settings', JSON.stringify(req.body), new Date().toISOString());
@@ -452,7 +487,7 @@ app.post('/api/payment-settings', (req, res) => {
 });
 
 // 9. Full Database Backup & Restore
-app.get('/api/database/backup', (req, res) => {
+app.get('/api/database/backup', requireRole('admin'), (req, res) => {
   try {
     const products = db.prepare('SELECT * FROM products').all();
     const users = db.prepare('SELECT * FROM users').all();
