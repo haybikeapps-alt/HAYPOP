@@ -4,7 +4,6 @@ export interface User {
   id: string;
   name: string;
   username: string;
-  pin?: string;
   role: UserRole;
   avatarColor?: string;
   isActive: boolean;
