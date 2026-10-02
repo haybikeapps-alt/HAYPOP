@@ -16,10 +16,11 @@ import { OfflineSyncBanner } from './components/OfflineSyncBanner';
 import { RoleSwitchModal } from './components/RoleSwitchModal';
 import { POSView } from './components/POSView';
 import { TransactionHistory } from './components/TransactionHistory';
-import { AdminFinancialReport } from './components/AdminFinancialReport';
 import { AdminFinancialAccounts } from './components/AdminFinancialAccounts';
 import { AdminExpenseManagement } from './components/AdminExpenseManagement';
 import { AdminSupplierPayables } from './components/AdminSupplierPayables';
+import { AdminCustomerReceivables } from './components/AdminCustomerReceivables';
+import { AdminFinanceDashboard } from './components/AdminFinanceDashboard';
 import { AdminAnalytics } from './components/AdminAnalytics';
 import { AdminStockManagement } from './components/AdminStockManagement';
 import { AdminUserManagement } from './components/AdminUserManagement';
@@ -117,7 +118,8 @@ export default function App() {
         {currentUser.role === 'admin' && (
           <>
             {activeTab === 'analytics' && <AdminAnalytics />}
-            {activeTab === 'finance' && <AdminFinancialReport />}
+            {activeTab === 'finance' && <AdminFinanceDashboard />}
+            {activeTab === 'customer_receivables' && <AdminCustomerReceivables />}
             {activeTab === 'financial_accounts' && <AdminFinancialAccounts />}
             {activeTab === 'expenses' && <AdminExpenseManagement />}
             {activeTab === 'supplier_payables' && <AdminSupplierPayables />}
