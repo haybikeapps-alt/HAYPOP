@@ -7,6 +7,40 @@ import {
   PaymentAccountSettings,
 } from '../types';
 
+export async function apiLogin(username: string, pin: string): Promise<User | null> {
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, pin }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.user || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function apiGetCurrentUser(): Promise<User | null> {
+  try {
+    const res = await fetch('/api/auth/me');
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.user || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function apiLogout(): Promise<void> {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+  } catch {
+    // Best-effort logout; local auth state is cleared regardless.
+  }
+}
+
 export interface DatabaseStatus {
   status: 'connected' | 'disconnected';
   engine: string;
