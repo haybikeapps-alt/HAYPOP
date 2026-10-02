@@ -11,8 +11,21 @@ initDatabase();
 cleanupExpiredSessions();
 
 const app = express();
-app.use(express.json({ limit: '15mb' }));
-app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+app.disable('x-powered-by');
+if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1);
+
+app.use(express.json({ limit: '4mb' }));
+app.use(express.urlencoded({ extended: true, limit: '4mb' }));
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+  }
+  next();
+});
 
 // Authentication endpoints remain public; all business APIs below require a server-side session.
 app.post('/api/auth/login', (req, res) => {
@@ -74,7 +87,7 @@ app.get('/api/database/status', requireRole('admin'), (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: (error as Error).message });
+    console.error('[DB STATUS]', error); res.status(500).json({ status: 'error', message: 'Database error' });
   }
 });
 
@@ -97,7 +110,7 @@ app.get('/api/products', (req, res) => {
     }));
     res.json(products);
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    console.error('[API ERROR]', error); res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -314,7 +327,7 @@ app.post('/api/transactions', (req, res) => {
     const cashierName = req.auth.name;
 
     const insertStmt = db.prepare(`
-      INSERT OR REPLACE INTO transactions (
+      INSERT INTO transactions (
         id, invoice_number, cashier_id, cashier_name, timestamp, items,
         subtotal, discount, tax, total_amount, payment_method, amount_paid, change, customer, is_synced, sync_timestamp
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -528,7 +541,7 @@ app.post('/api/payment-settings', requireRole('admin'), (req, res) => {
 app.get('/api/database/backup', requireRole('admin'), (req, res) => {
   try {
     const products = db.prepare('SELECT * FROM products').all();
-    const users = db.prepare('SELECT * FROM users').all();
+    const users = db.prepare('SELECT id, name, username, role, avatar_color, is_active, created_at FROM users').all();
     const transactions = db.prepare('SELECT * FROM transactions').all();
     const expenses = db.prepare('SELECT * FROM expenses').all();
     const kv = db.prepare('SELECT * FROM key_value_store').all();
