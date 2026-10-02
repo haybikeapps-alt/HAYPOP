@@ -18,6 +18,7 @@ import { POSView } from './components/POSView';
 import { TransactionHistory } from './components/TransactionHistory';
 import { AdminFinancialReport } from './components/AdminFinancialReport';
 import { AdminFinancialAccounts } from './components/AdminFinancialAccounts';
+import { AdminExpenseManagement } from './components/AdminExpenseManagement';
 import { AdminAnalytics } from './components/AdminAnalytics';
 import { AdminStockManagement } from './components/AdminStockManagement';
 import { AdminUserManagement } from './components/AdminUserManagement';
@@ -117,6 +118,7 @@ export default function App() {
             {activeTab === 'analytics' && <AdminAnalytics />}
             {activeTab === 'finance' && <AdminFinancialReport />}
             {activeTab === 'financial_accounts' && <AdminFinancialAccounts />}
+            {activeTab === 'expenses' && <AdminExpenseManagement />}
             {activeTab === 'inventory' && (
               <AdminStockManagement onProductsUpdated={handleRefreshData} />
             )}
