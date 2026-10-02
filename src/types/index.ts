@@ -104,6 +104,7 @@ export interface OrderItemRecord {
   unitPrice: number;
   totalPrice: number;
   modifiersSummary: string[];
+  modifierOptionIds?: string[];
   note?: string;
 }
 
