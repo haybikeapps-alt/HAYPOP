@@ -438,3 +438,150 @@ export async function apiTransferFinancialFunds(
   if (error) return { success: false, error: error.message };
   return { success: data === true, error: data === true ? undefined : 'Transfer ditolak oleh sistem.' };
 }
+
+export interface FinancialExpenseRecord {
+  id: string;
+  date: string;
+  category: string;
+  categoryLabel: string;
+  amount: number;
+  description: string;
+  accountId: string | null;
+  accountName: string | null;
+  recordedBy: string;
+  timestamp: string;
+  source: 'expense' | 'asset_purchase' | 'prive';
+}
+
+export async function apiRecordOperatingExpense(input: {
+  category: 'belanja_bahan' | 'gaji_karyawan' | 'operasional_lainnya' | 'promosi';
+  categoryLabel: string;
+  amount: number;
+  accountId: string;
+  expenseDate: string;
+  description: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { data, error } = await supabase.rpc('record_operating_expense', {
+    p_category: input.category,
+    p_category_label: input.categoryLabel,
+    p_amount: input.amount,
+    p_account_id: input.accountId,
+    p_expense_date: input.expenseDate,
+    p_description: input.description || null,
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: typeof data === 'string' && data.length > 0, error: data ? undefined : 'Pengeluaran ditolak oleh sistem.' };
+}
+
+export async function apiRecordAssetPurchase(input: {
+  name: string;
+  amount: number;
+  accountId: string;
+  purchaseDate: string;
+  description: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { data, error } = await supabase.rpc('record_asset_purchase', {
+    p_name: input.name,
+    p_amount: input.amount,
+    p_account_id: input.accountId,
+    p_purchase_date: input.purchaseDate,
+    p_description: input.description || null,
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: typeof data === 'string' && data.length > 0, error: data ? undefined : 'Pembelian aset ditolak oleh sistem.' };
+}
+
+export async function apiRecordPrive(input: {
+  accountId: string;
+  amount: number;
+  entryDate: string;
+  description: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { data, error } = await supabase.rpc('record_prive', {
+    p_account_id: input.accountId,
+    p_amount: input.amount,
+    p_entry_date: input.entryDate,
+    p_description: input.description || null,
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: typeof data === 'string' && data.length > 0, error: data ? undefined : 'Prive ditolak oleh sistem.' };
+}
+
+export async function apiGetFinancialExpenseRecords(): Promise<FinancialExpenseRecord[] | null> {
+  const [expensesResult, assetsResult, priveResult] = await Promise.all([
+    supabase
+      .from('expenses')
+      .select('id, date, category, category_label, amount, description, recorded_by_name, timestamp')
+      .order('date', { ascending: false }),
+    supabase
+      .from('asset_purchases')
+      .select('id, name, amount, purchase_date, account_id, description, created_at')
+      .order('purchase_date', { ascending: false }),
+    supabase
+      .from('financial_entries')
+      .select('id, account_id, amount, description, entry_date, created_at')
+      .eq('entry_type', 'prive')
+      .eq('direction', 'out')
+      .order('entry_date', { ascending: false }),
+  ]);
+
+  if (expensesResult.error || assetsResult.error || priveResult.error) return null;
+
+  const accountIds = new Set<string>();
+  (assetsResult.data ?? []).forEach((row) => row.account_id && accountIds.add(row.account_id));
+  (priveResult.data ?? []).forEach((row) => row.account_id && accountIds.add(row.account_id));
+
+  const accountMap = new Map<string, string>();
+  if (accountIds.size > 0) {
+    const { data: accounts, error: accountsError } = await supabase
+      .from('financial_accounts')
+      .select('id, name')
+      .in('id', Array.from(accountIds));
+    if (accountsError) return null;
+    (accounts ?? []).forEach((row) => accountMap.set(String(row.id), String(row.name)));
+  }
+
+  const records: FinancialExpenseRecord[] = [
+    ...(expensesResult.data ?? []).map((row) => ({
+      id: String(row.id),
+      date: String(row.date),
+      category: String(row.category),
+      categoryLabel: String(row.category_label ?? ''),
+      amount: Number(row.amount ?? 0),
+      description: String(row.description ?? ''),
+      accountId: null,
+      accountName: null,
+      recordedBy: String(row.recorded_by_name ?? ''),
+      timestamp: String(row.timestamp ?? ''),
+      source: 'expense' as const,
+    })),
+    ...(assetsResult.data ?? []).map((row) => ({
+      id: String(row.id),
+      date: String(row.purchase_date),
+      category: 'pembelian_aset',
+      categoryLabel: 'Pembelian Aset',
+      amount: Number(row.amount ?? 0),
+      description: String(row.description ?? row.name ?? ''),
+      accountId: row.account_id ? String(row.account_id) : null,
+      accountName: row.account_id ? accountMap.get(String(row.account_id)) ?? null : null,
+      recordedBy: '',
+      timestamp: String(row.created_at ?? ''),
+      source: 'asset_purchase' as const,
+    })),
+    ...(priveResult.data ?? []).map((row) => ({
+      id: String(row.id),
+      date: String(row.entry_date).slice(0, 10),
+      category: 'prive',
+      categoryLabel: 'Prive',
+      amount: Number(row.amount ?? 0),
+      description: String(row.description ?? 'Pengambilan pribadi pemilik'),
+      accountId: row.account_id ? String(row.account_id) : null,
+      accountName: row.account_id ? accountMap.get(String(row.account_id)) ?? null : null,
+      recordedBy: '',
+      timestamp: String(row.created_at ?? ''),
+      source: 'prive' as const,
+    })),
+  ];
+
+  return records.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
