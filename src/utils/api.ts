@@ -6,17 +6,37 @@ import {
   StoreSettings,
   PaymentAccountSettings,
 } from '../types';
+import { supabase } from '../lib/supabase';
 
-export async function apiLogin(username: string, pin: string): Promise<User | null> {
+function mapProfile(row: any): User {
+  return {
+    id: String(row.id),
+    name: String(row.name ?? ''),
+    username: String(row.username ?? ''),
+    role: row.role === 'admin' ? 'admin' : 'kasir',
+    avatarColor: row.avatar_color ?? undefined,
+    isActive: Boolean(row.is_active),
+    createdAt: String(row.created_at ?? ''),
+  };
+}
+
+export async function apiLogin(email: string, password: string): Promise<User | null> {
   try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, pin }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.user || null;
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.user) return null;
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, name, username, role, avatar_color, is_active, created_at')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError || !profile || !profile.is_active) {
+      await supabase.auth.signOut();
+      return null;
+    }
+
+    return mapProfile(profile);
   } catch {
     return null;
   }
@@ -24,21 +44,28 @@ export async function apiLogin(username: string, pin: string): Promise<User | nu
 
 export async function apiGetCurrentUser(): Promise<User | null> {
   try {
-    const res = await fetch('/api/auth/me');
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.user || null;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return null;
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('id, name, username, role, avatar_color, is_active, created_at')
+      .eq('id', session.user.id)
+      .single();
+
+    if (error || !profile || !profile.is_active) {
+      await supabase.auth.signOut();
+      return null;
+    }
+
+    return mapProfile(profile);
   } catch {
     return null;
   }
 }
 
 export async function apiLogout(): Promise<void> {
-  try {
-    await fetch('/api/auth/logout', { method: 'POST' });
-  } catch {
-    // Best-effort logout; local auth state is cleared regardless.
-  }
+  await supabase.auth.signOut();
 }
 
 export interface DatabaseStatus {
@@ -64,8 +91,8 @@ export async function checkDatabaseStatus(): Promise<DatabaseStatus> {
   } catch {
     return {
       status: 'disconnected',
-      engine: 'SQLite (Offline Mode / Local Cache)',
-      databaseFile: 'data/haypop.sqlite',
+      engine: 'Supabase PostgreSQL',
+      databaseFile: 'Supabase managed database',
       isPersistent: true,
     };
   }
