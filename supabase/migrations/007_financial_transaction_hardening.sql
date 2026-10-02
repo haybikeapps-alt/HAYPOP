@@ -503,7 +503,7 @@ begin
     amount,
     description,
     reference_type,
-    entry_id,
+    reference_id,
     entry_date,
     created_by
   )
