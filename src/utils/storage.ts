@@ -196,6 +196,58 @@ const INITIAL_PRODUCTS: Product[] = [
   },
 ];
 
+const LEGACY_DEMO_PRODUCT_IDS = new Set([
+  'prod-drink-1','prod-drink-2','prod-food-1','prod-snack-1',
+  'prod-cup-1','prod-cup-2','prod-cup-3','prod-cup-4',
+  'prod-top-1','prod-top-2','prod-top-3','prod-top-4','prod-top-5',
+  'prod-package-1',
+]);
+const LEGACY_DEMO_TRANSACTION_IDS = new Set(['trx-demo-01','trx-demo-02','trx-demo-03']);
+const LEGACY_DEMO_EXPENSE_IDS = new Set([
+  'exp-asset-1','exp-asset-2','exp-asset-3','exp-raw-1','exp-raw-2',
+  'exp-salary-1','exp-ops-1',
+]);
+
+function purgeLegacyDemoCache(): void {
+  try {
+    const rawProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+    if (rawProducts) {
+      const products = JSON.parse(rawProducts) as Product[];
+      const kept = products.filter((p) => !LEGACY_DEMO_PRODUCT_IDS.has(p.id));
+      localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify([...kept, ...INITIAL_PRODUCTS]));
+    }
+
+    const rawTransactions = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+    if (rawTransactions) {
+      const transactions = JSON.parse(rawTransactions) as Transaction[];
+      localStorage.setItem(
+        STORAGE_KEYS.TRANSACTIONS,
+        JSON.stringify(transactions.filter((t) => !LEGACY_DEMO_TRANSACTION_IDS.has(t.id)))
+      );
+    }
+
+    const rawExpenses = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+    if (rawExpenses) {
+      const expenses = JSON.parse(rawExpenses) as ExpenseRecord[];
+      localStorage.setItem(
+        STORAGE_KEYS.EXPENSES,
+        JSON.stringify(expenses.filter((e) => !LEGACY_DEMO_EXPENSE_IDS.has(e.id)))
+      );
+    }
+
+    const rawQueue = localStorage.getItem(STORAGE_KEYS.OFFLINE_QUEUE);
+    if (rawQueue) {
+      const queue = JSON.parse(rawQueue) as Transaction[];
+      localStorage.setItem(
+        STORAGE_KEYS.OFFLINE_QUEUE,
+        JSON.stringify(queue.filter((t) => !LEGACY_DEMO_TRANSACTION_IDS.has(t.id)))
+      );
+    }
+  } catch {
+    // Ignore malformed legacy cache; normal getters will recover safely.
+  }
+}
+
 const INITIAL_SETTINGS: StoreSettings = {
   storeName: 'HAYPOP',
   tagline: 'Fresh Drinks & Crispy Bites',
@@ -230,6 +282,8 @@ const INITIAL_PAYMENT_SETTINGS: PaymentAccountSettings = {
     shopeepay: { number: '', name: 'HAYPOP', isActive: false },
   },
 };
+
+purgeLegacyDemoCache();
 
 export function getStoredProducts(): Product[] {
   const data = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
