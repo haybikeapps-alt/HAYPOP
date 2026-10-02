@@ -437,7 +437,7 @@ export async function apiTransferFinancialFunds(
     p_description: description ?? null,
   });
   if (error) return { success: false, error: error.message };
-  return { success: data === true, error: data === true ? undefined : 'Transfer ditolak oleh sistem.' };
+  return { success: typeof data === 'string' && data.length > 0, error: data ? undefined : 'Transfer ditolak oleh sistem.' };
 }
 
 export interface FinancialExpenseRecord {
