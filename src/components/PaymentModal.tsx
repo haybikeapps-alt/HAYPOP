@@ -4,12 +4,10 @@ import {
   QrCode,
   Banknote,
   Smartphone,
-  ShieldCheck,
   CheckCircle2,
   Clock,
   Sparkles,
   ArrowRight,
-  UserCheck,
   Building,
   Copy,
   Check,
@@ -29,7 +27,6 @@ import {
   queueOfflineTransaction,
   getPaymentAccountSettings,
 } from '../utils/storage';
-import { encryptCustomerData } from '../utils/crypto';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 interface PaymentModalProps {
@@ -60,11 +57,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const paymentAccounts = getPaymentAccountSettings();
 
   // Customer info & E2E Encryption (Optional)
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [tableNumber, setTableNumber] = useState('');
-  const [customerNotes, setCustomerNotes] = useState('');
-  const [isEncrypting, setIsEncrypting] = useState(false);
   const [copiedBank, setCopiedBank] = useState(false);
 
   // Cash calculation
@@ -97,19 +89,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleProcessTransaction = async (paidAmount: number) => {
-    setIsEncrypting(true);
     setIsProcessing(true);
-
-    const rawCustomer: CustomerData = {
-      name: customerName.trim(),
-      phone: customerPhone.trim(),
-      tableOrOrderNumber: tableNumber.trim(),
-      notes: customerNotes.trim(),
-    };
-
-    const encryptedCustomer = (rawCustomer.name || rawCustomer.phone)
-      ? await encryptCustomerData(rawCustomer)
-      : undefined;
 
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
@@ -138,7 +118,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       paymentMethod: method,
       amountPaid: paidAmount,
       change: method === 'cash' ? Math.max(0, paidAmount - total) : 0,
-      customer: encryptedCustomer,
       isOfflineCreated: !isOnline,
       isSynced: isOnline,
     };
@@ -159,7 +138,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       // ignore
     }
 
-    setIsEncrypting(false);
     setIsProcessing(false);
     onPaymentSuccess(newTrx);
   };
@@ -208,43 +186,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
         {/* Content Body */}
         <div className="p-5 overflow-y-auto space-y-5 flex-1">
-          {/* Customer info & E2E encryption notice */}
-          <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-stone-800 uppercase tracking-wide flex items-center gap-1.5">
-                <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                Data Pelanggan (Opsional)
-              </span>
-              <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
-                <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                Enkripsi E2E (AES-256)
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <input
-                type="text"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Nama Pembeli..."
-                className="text-xs px-3 py-2 rounded-xl border border-stone-200 bg-white focus:border-emerald-500 outline-hidden"
-              />
-              <input
-                type="tel"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                placeholder="No. WhatsApp / HP..."
-                className="text-xs px-3 py-2 rounded-xl border border-stone-200 bg-white focus:border-emerald-500 outline-hidden"
-              />
-              <input
-                type="text"
-                value={tableNumber}
-                onChange={(e) => setTableNumber(e.target.value)}
-                placeholder="No. Meja / Antrean..."
-                className="text-xs px-3 py-2 rounded-xl border border-stone-200 bg-white focus:border-emerald-500 outline-hidden"
-              />
-            </div>
-          </div>
-
           {/* Payment Method Selector Tabs */}
           <div>
             <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">
@@ -459,7 +400,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleProcessTransaction(total)}
-                disabled={isProcessing || isEncrypting}
+                disabled={isProcessing}
                 className="w-full bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3.5 px-4 rounded-2xl text-sm transition shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <CheckCircle2 className="w-5 h-5 text-white" />
