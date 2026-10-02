@@ -1,221 +1,178 @@
-import React, { useState } from 'react';
-import { Users, Plus, ShieldCheck, UserCheck, Trash2, Edit2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Users, ShieldCheck, UserCheck, Trash2, Edit2 } from 'lucide-react';
 import { User, UserRole } from '../types';
-import { getStoredUsers, saveStoredUsers } from '../utils/storage';
+import { apiDeleteUser, apiGetUsers, apiSaveUser } from '../utils/api';
 
 export const AdminUserManagement: React.FC<{ currentUser: User }> = ({ currentUser }) => {
-  const [users, setUsers] = useState<User[]>(() => getStoredUsers());
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-
-  // Form
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
-  const [pin, setPin] = useState('');
   const [role, setRole] = useState<UserRole>('kasir');
 
-  const handleOpenAdd = () => {
-    setEditingUser(null);
-    setName('');
-    setUsername('');
-    setPin('');
-    setRole('kasir');
-    setIsModalOpen(true);
+  const loadUsers = async () => {
+    setIsLoading(true);
+    const data = await apiGetUsers();
+    if (data) setUsers(data);
+    setIsLoading(false);
   };
+
+  useEffect(() => {
+    void loadUsers();
+  }, []);
 
   const handleOpenEdit = (u: User) => {
     setEditingUser(u);
     setName(u.name);
     setUsername(u.username);
-    setPin('');
     setRole(u.role);
-    setIsModalOpen(true);
   };
 
-  const handleToggleActive = (id: string) => {
-    if (id === currentUser.id) {
-      alert('Tidak dapat menonaktifkan akun yang sedang digunakan saat ini.');
-      return;
-    }
-    const updated = users.map((u) => {
-      if (u.id === id) {
-        return { ...u, isActive: !u.isActive };
-      }
-      return u;
-    });
-    setUsers(updated);
-    saveStoredUsers(updated);
-  };
-
-  const handleDeleteUser = (id: string) => {
-    if (id === currentUser.id) {
-      alert('Tidak dapat menghapus akun Anda sendiri.');
-      return;
-    }
-    if (confirm('Yakin ingin menghapus pengguna ini?')) {
-      const updated = users.filter((u) => u.id !== id);
-      setUsers(updated);
-      saveStoredUsers(updated);
-    }
-  };
-
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingUser && !/^\d{4,6}$/.test(pin)) {
-      alert('PIN pengguna baru harus terdiri dari 4-6 angka.');
+    if (!editingUser) return;
+
+    if (editingUser.id === currentUser.id && role !== currentUser.role) {
+      alert('Perubahan role akun sendiri diblokir demi mencegah kehilangan akses.');
       return;
     }
-    if (pin && !/^\d{4,6}$/.test(pin)) {
-      alert('PIN harus terdiri dari 4-6 angka.');
+
+    const updated: User = {
+      ...editingUser,
+      name: name.trim(),
+      username: username.trim().toLowerCase(),
+      role,
+    };
+
+    if (!updated.name || !updated.username) {
+      alert('Nama dan username wajib diisi.');
       return;
     }
 
-    if (editingUser) {
-      const updated = users.map((u) => {
-        if (u.id === editingUser.id) {
-          return {
-            ...u,
-            name,
-            username: username.toLowerCase().trim(),
-            pin,
-            role,
-          };
-        }
-        return u;
-      });
-      setUsers(updated);
-      saveStoredUsers(updated);
-    } else {
-      const colors = ['bg-emerald-600', 'bg-teal-600', 'bg-green-600', 'bg-emerald-700', 'bg-teal-700'];
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-
-      const newUser: User = {
-        id: 'usr-' + Date.now(),
-        name,
-        username: username.toLowerCase().trim() || 'kasir_' + Date.now().toString().slice(-4),
-        pin,
-        role,
-        avatarColor: randomColor,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-      };
-      const updated = [...users, newUser];
-      setUsers(updated);
-      saveStoredUsers(updated);
+    const ok = await apiSaveUser(updated);
+    if (!ok) {
+      alert('Perubahan gagal disimpan. Periksa hak akses dan data pengguna.');
+      return;
     }
 
-    setIsModalOpen(false);
+    setEditingUser(null);
+    await loadUsers();
+  };
+
+  const handleToggleActive = async (user: User) => {
+    if (user.id === currentUser.id) {
+      alert('Tidak dapat menonaktifkan akun yang sedang digunakan.');
+      return;
+    }
+
+    const ok = await apiSaveUser({ ...user, isActive: !user.isActive });
+    if (!ok) {
+      alert('Status pengguna gagal diubah. Database mungkin melindungi admin terakhir.');
+      return;
+    }
+    await loadUsers();
+  };
+
+  const handleDeactivate = async (user: User) => {
+    if (user.id === currentUser.id) {
+      alert('Tidak dapat menonaktifkan akun sendiri.');
+      return;
+    }
+    if (!confirm(`Nonaktifkan akun ${user.name}? Akun Auth tetap ada, tetapi tidak dapat masuk ke HAYPOP.`)) return;
+
+    const ok = await apiDeleteUser(user.id);
+    if (!ok) {
+      alert('Pengguna gagal dinonaktifkan.');
+      return;
+    }
+    await loadUsers();
   };
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 w-full space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-3xl border border-emerald-100 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-              <Users className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-stone-900">
-                Manajemen Pengguna & Kasir
-              </h2>
-              <p className="text-xs text-stone-500 mt-0.5">
-                Atur staf kasir, batasan hak akses (Admin vs Kasir), dan kode PIN login transaksi.
-              </p>
-            </div>
+      <div className="bg-white p-5 rounded-3xl border border-emerald-100 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+            <Users className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-stone-900">Manajemen Pengguna & Kasir</h2>
+            <p className="text-xs text-stone-500 mt-0.5">
+              Data dibaca langsung dari Supabase. Password/PIN tidak dikelola atau disimpan oleh HAYPOP.
+            </p>
           </div>
         </div>
-
-        <button
-          onClick={handleOpenAdd}
-          className="bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm hover:shadow transition cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Tambah Pengguna</span>
-        </button>
+        <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+          Pembuatan akun Auth baru harus dilakukan melalui Supabase Auth/Edge Function yang aman.
+          HAYPOP tidak lagi membuat akun palsu di LocalStorage.
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl border border-stone-200 shadow-xs overflow-hidden">
         <table className="w-full text-left text-xs">
           <thead className="bg-emerald-50/70 border-b border-emerald-100 text-emerald-950 font-bold uppercase tracking-wider text-[10px]">
             <tr>
-              <th className="py-3.5 px-4">Nama Lengkap</th>
+              <th className="py-3.5 px-4">Nama</th>
               <th className="py-3.5 px-4">Username</th>
-              <th className="py-3.5 px-4">Hak Akses (Role)</th>
-              <th className="py-3.5 px-4">Kode PIN</th>
+              <th className="py-3.5 px-4">Role</th>
               <th className="py-3.5 px-4">Status</th>
               <th className="py-3.5 px-4 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100 font-medium">
-            {users.map((u) => {
+            {isLoading ? (
+              <tr><td colSpan={5} className="py-8 text-center text-stone-500">Memuat pengguna...</td></tr>
+            ) : users.length === 0 ? (
+              <tr><td colSpan={5} className="py-8 text-center text-stone-500">Belum ada profil pengguna.</td></tr>
+            ) : users.map((u) => {
               const isSelf = u.id === currentUser.id;
               return (
                 <tr key={u.id} className="hover:bg-emerald-50/40 transition">
                   <td className="py-3.5 px-4 whitespace-nowrap">
                     <div className="flex items-center gap-2.5">
-                      <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs ${
-                          u.avatarColor || (u.role === 'admin' ? 'bg-emerald-700' : 'bg-teal-600')
-                        }`}
-                      >
-                        {u.name[0]}
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs ${u.avatarColor || (u.role === 'admin' ? 'bg-emerald-700' : 'bg-teal-600')}`}>
+                        {u.name?.[0] || '?'}
                       </div>
-                      <div>
-                        <span className="font-extrabold text-stone-900">{u.name}</span>
-                        {isSelf && (
-                          <span className="ml-2 text-[10px] text-emerald-700 font-bold">(Anda)</span>
-                        )}
-                      </div>
+                      <span className="font-extrabold text-stone-900">{u.name}</span>
+                      {isSelf && <span className="text-[10px] text-emerald-700 font-bold">(Anda)</span>}
                     </div>
                   </td>
-
                   <td className="py-3.5 px-4 font-mono text-stone-600">{u.username}</td>
-
                   <td className="py-3.5 px-4 whitespace-nowrap">
                     {u.role === 'admin' ? (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        <ShieldCheck className="w-3 h-3 text-emerald-600" /> Admin (Akses Penuh)
+                        <ShieldCheck className="w-3 h-3" /> Admin
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
-                        <UserCheck className="w-3 h-3 text-teal-600" /> Kasir (POS Saja)
+                        <UserCheck className="w-3 h-3" /> Kasir
                       </span>
                     )}
                   </td>
-
-                  <td className="py-3.5 px-4 font-mono font-bold text-stone-700 tracking-wider">
-                    •••••• (tidak ditampilkan)
-                  </td>
-
-                  <td className="py-3.5 px-4 whitespace-nowrap">
+                  <td className="py-3.5 px-4">
                     <button
-                      onClick={() => handleToggleActive(u.id)}
+                      onClick={() => void handleToggleActive(u)}
                       disabled={isSelf}
-                      className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition cursor-pointer disabled:opacity-50 ${
-                        u.isActive
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                          : 'bg-stone-100 text-stone-500 border-stone-200'
-                      }`}
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-full border disabled:opacity-50 ${u.isActive ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-stone-100 text-stone-500 border-stone-200'}`}
                     >
                       {u.isActive ? 'Aktif' : 'Non-aktif'}
                     </button>
                   </td>
-
-                  <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                  <td className="py-3.5 px-4 text-center">
                     <div className="flex items-center justify-center gap-1.5">
                       <button
                         onClick={() => handleOpenEdit(u)}
-                        className="p-1.5 rounded-xl border border-stone-200 hover:border-emerald-300 hover:bg-emerald-50 text-stone-600 hover:text-emerald-700 transition cursor-pointer"
-                        title="Edit User"
+                        className="p-1.5 rounded-xl border border-stone-200 hover:border-emerald-300 hover:bg-emerald-50 text-stone-600"
+                        title="Edit profil"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       {!isSelf && (
                         <button
-                          onClick={() => handleDeleteUser(u.id)}
-                          className="p-1.5 rounded-xl border border-stone-200 hover:border-red-300 hover:bg-red-50 text-stone-400 hover:text-red-600 transition cursor-pointer"
-                          title="Hapus User"
+                          onClick={() => void handleDeactivate(u)}
+                          className="p-1.5 rounded-xl border border-stone-200 hover:border-red-300 hover:bg-red-50 text-stone-400 hover:text-red-600"
+                          title="Nonaktifkan akun"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -229,88 +186,32 @@ export const AdminUserManagement: React.FC<{ currentUser: User }> = ({ currentUs
         </table>
       </div>
 
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-emerald-100 overflow-hidden">
             <div className="bg-linear-to-r from-emerald-800 to-teal-800 text-white p-5 flex items-center justify-between">
-              <h3 className="font-extrabold text-base text-white">
-                {editingUser ? 'Edit Akun Pengguna' : 'Tambah Pengguna Baru'}
-              </h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-emerald-200 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
-              >
-                ✕
-              </button>
+              <h3 className="font-extrabold text-base">Edit Profil Pengguna</h3>
+              <button onClick={() => setEditingUser(null)} className="text-emerald-200 hover:text-white">✕</button>
             </div>
-
             <form onSubmit={handleSave} className="p-6 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-stone-700 uppercase">Nama Lengkap</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Contoh: Rian Pratama (Kasir 3)"
-                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-stone-300 font-semibold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 outline-hidden"
-                />
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">Nama Lengkap</label>
+                <input required value={name} onChange={(e) => setName(e.target.value)} className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-stone-300" />
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-stone-700 uppercase">Username Login</label>
-                <input
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Contoh: kasir3"
-                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-stone-300 font-mono focus:border-emerald-500 outline-hidden"
-                />
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">Username</label>
+                <input required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-stone-300 font-mono" />
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-stone-700 uppercase">
-                  Kode PIN Transaksi (4 - 6 Angka)
-                </label>
-                <input
-                  type="password"
-                  required
-                  maxLength={6}
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder={editingUser ? "Kosongkan jika tidak diubah" : "Contoh: 1234"}
-                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-stone-300 font-mono tracking-widest text-center text-sm font-bold focus:border-emerald-500 outline-hidden"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-stone-700 uppercase">Hak Akses Role</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as UserRole)}
-                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-stone-300 font-semibold text-stone-800 focus:border-emerald-500 outline-hidden"
-                >
-                  <option value="kasir">Kasir (Hanya Penjualan & Riwayat Kasir)</option>
-                  <option value="admin">Administrator (Akses Penuh: Stok, BEP, User)</option>
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">Role</label>
+                <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} disabled={editingUser.id === currentUser.id} className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-stone-300">
+                  <option value="kasir">Kasir</option>
+                  <option value="admin">Administrator</option>
                 </select>
               </div>
-
-              <div className="flex gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-stone-300 text-stone-600 font-bold text-xs hover:bg-stone-50 transition cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs transition shadow-sm cursor-pointer"
-                >
-                  Simpan Pengguna
-                </button>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setEditingUser(null)} className="flex-1 py-2.5 rounded-xl border border-stone-300 text-xs font-bold">Batal</button>
+                <button type="submit" className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold">Simpan</button>
               </div>
             </form>
           </div>
