@@ -343,7 +343,7 @@ export function getStoredTransactions(): Transaction[] {
   }
 }
 
-export function saveTransaction(trx: Transaction): void {
+export function saveTransaction(trx: Transaction, options: { syncDatabase?: boolean } = {}): void {
   const current = getStoredTransactions();
   current.unshift(trx);
   localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(current));
@@ -351,15 +351,20 @@ export function saveTransaction(trx: Transaction): void {
   const products = getStoredProducts();
   let updated = false;
   trx.items.forEach((item) => {
-    const prod = products.find((p) => p.id === item.productId);
-    if (prod && prod.stock > 0) {
-      prod.stock = Math.max(0, prod.stock - item.quantity);
-      updated = true;
-    }
+    const inventoryIds = [item.productId, ...(item.modifierOptionIds ?? [])];
+    inventoryIds.forEach((inventoryId) => {
+      const prod = products.find((p) => p.id === inventoryId);
+      if (prod && prod.stock > 0) {
+        prod.stock = Math.max(0, prod.stock - item.quantity);
+        updated = true;
+      }
+    });
   });
   if (updated) saveStoredProducts(products);
 
-  apiSaveTransaction(trx).catch(() => queueOfflineTransaction(trx));
+  if (options.syncDatabase !== false) {
+    apiSaveTransaction(trx).catch(() => queueOfflineTransaction(trx));
+  }
 }
 
 export function getOfflineQueue(): Transaction[] {
