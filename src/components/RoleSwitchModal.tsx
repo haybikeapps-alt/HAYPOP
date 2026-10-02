@@ -10,21 +10,21 @@ interface RoleSwitchModalProps {
 }
 
 export const RoleSwitchModal: React.FC<RoleSwitchModalProps> = ({ currentUser, onSelectUser, onClose }) => {
-  const [username, setUsername] = useState('');
-  const [pinInput, setPinInput] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
-    if (!username.trim() || !/^\d{4,6}$/.test(pinInput)) {
-      setErrorMsg('Masukkan username dan PIN 4-6 digit.');
+    if (!/^\S+@\S+\.\S+$/.test(email.trim()) || password.length < 6) {
+      setErrorMsg('Masukkan email dan password yang valid (minimal 6 karakter).');
       return;
     }
 
     setIsSubmitting(true);
-    const user = await apiLogin(username.trim(), pinInput);
+    const user = await apiLogin(email.trim(), password);
     setIsSubmitting(false);
 
     if (!user) {
@@ -60,18 +60,18 @@ export const RoleSwitchModal: React.FC<RoleSwitchModalProps> = ({ currentUser, o
 
         <form onSubmit={handleLogin} className="p-6 space-y-4">
           <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-xs text-emerald-800">
-            Hak akses ditentukan oleh server setelah username dan PIN diverifikasi. Data PIN tidak disimpan di browser.
+            Hak akses ditentukan oleh Supabase Auth dan profil PostgreSQL. Password tidak disimpan di browser oleh HAYPOP.
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-stone-700 mb-1.5">Username</label>
+            <label className="block text-xs font-semibold text-stone-700 mb-1.5">Email</label>
             <input
-              type="text"
-              autoComplete="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="contoh: kasir1"
-              maxLength={50}
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@contoh.com"
+              maxLength={254}
               required
               autoFocus
               className="w-full px-4 py-3 rounded-xl border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-hidden"
@@ -81,21 +81,20 @@ export const RoleSwitchModal: React.FC<RoleSwitchModalProps> = ({ currentUser, o
           <div>
             <label className="text-xs font-semibold text-stone-700 flex items-center gap-1.5 mb-1.5">
               <Lock className="w-3.5 h-3.5 text-stone-500" />
-              PIN
+              Password
             </label>
             <input
               type="password"
-              inputMode="numeric"
               autoComplete="current-password"
-              maxLength={6}
-              value={pinInput}
+              minLength={6}
+              value={password}
               onChange={(e) => {
-                setPinInput(e.target.value.replace(/\D/g, ''));
+                setPassword(e.target.value);
                 setErrorMsg('');
               }}
-              placeholder="4-6 digit"
+              placeholder="Password Supabase"
               required
-              className="w-full text-center tracking-widest text-lg font-mono font-bold px-4 py-3 rounded-xl border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-hidden"
+              className="w-full px-4 py-3 rounded-xl border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-hidden"
             />
           </div>
 
