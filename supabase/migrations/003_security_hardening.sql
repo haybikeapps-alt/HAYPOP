@@ -155,6 +155,7 @@ declare
   v_product_id text;
   v_quantity numeric;
   v_unit_price numeric;
+  v_base_price numeric;
   v_line_total numeric;
   v_stock numeric;
   v_subtotal numeric := 0;
@@ -219,7 +220,7 @@ begin
       raise exception 'INVALID_ITEM';
     end if;
 
-    select stock into v_stock
+    select stock, price into v_stock, v_base_price
     from public.products
     where id = v_product_id
       and is_available = true
@@ -231,6 +232,12 @@ begin
 
     if v_stock < v_quantity then
       raise exception 'INSUFFICIENT_STOCK:%', v_product_id;
+    end if;
+
+    -- Never allow the client to undercharge below the canonical product price.
+    -- Modifier pricing is still allowed on top of the base product price.
+    if v_unit_price < v_base_price then
+      raise exception 'PRICE_BELOW_CATALOG:%', v_product_id;
     end if;
 
     v_subtotal := v_subtotal + v_line_total;
