@@ -1,20 +1,19 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# HAYPOP
 
-# Run and deploy your AI Studio app
+HAYPOP adalah aplikasi POS (Point of Sale) untuk pengelolaan penjualan, produk, stok, pembayaran, transaksi, dan laporan bisnis.
 
-This contains everything you need to run your app locally.
+## Stack
+- React + TypeScript + Vite
+- Supabase Auth + PostgreSQL + Row Level Security
+- PWA
 
-View your app in AI Studio: https://ai.studio/apps/37f1281d-5863-45dc-92c7-31e9d7ed76f3
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
+## Menjalankan aplikasi
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Salin `.env.example` menjadi `.env.local`
+3. Isi `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY`
+4. Jalankan:
    `npm run dev`
+
+## Catatan
+Supabase adalah sumber data utama. Jangan menaruh `service_role` key di frontend atau repository.
